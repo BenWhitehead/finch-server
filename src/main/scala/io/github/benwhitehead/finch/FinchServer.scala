@@ -64,10 +64,10 @@ trait FinchServer extends App {
 
     adminServer = Some(HttpServer.serve(new InetSocketAddress(config.adminPort), HttpMuxer))
     adminServer map { closeOnExit(_) }
-    logger.info(s"admin http server started on: ${adminServer map {_.boundAddress}}")
+    logger.info(s"admin http server started on: ${(adminServer map {_.boundAddress}).get}")
 
     server = Some(startServer())
-    logger.info(s"http server started on: ${server map {_.localAddress}}")
+    logger.info(s"http server started on: ${(server map {_.localAddress}).get}")
     server map { closeOnExit(_) }
 
     adminServer map { Await.ready(_) }
@@ -81,7 +81,7 @@ trait FinchServer extends App {
       .codec(RichHttp[HttpRequest](Http()))
       .bindTo(new InetSocketAddress(config.port))
       .name(s"srv/http/$serverName")
-      .build(AccessLog andThen HandleErrors andThen endpoint.toService)
+      .build(StatsFilter andThen AccessLog andThen HandleErrors andThen endpoint.toService)
   }
 
   init {
