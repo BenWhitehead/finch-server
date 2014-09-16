@@ -17,12 +17,12 @@ package io.github.benwhitehead.finch
 
 import java.io.{File, FileOutputStream}
 import java.lang.management.ManagementFactory
-import java.net.{SocketAddress, InetSocketAddress}
+import java.net.{InetSocketAddress, SocketAddress}
 
 import com.twitter.app.App
-import com.twitter.finagle.{ListeningServer, HttpServer}
-import com.twitter.finagle.builder.{ServerBuilder, Server}
+import com.twitter.finagle.builder.{Server, ServerBuilder}
 import com.twitter.finagle.http.{Http, HttpMuxer, RichHttp}
+import com.twitter.finagle.{HttpServer, ListeningServer}
 import com.twitter.util.Await
 import io.finch._
 import io.github.benwhitehead.finch.filters._
@@ -39,7 +39,11 @@ trait FinchServer extends App {
 
   def serverName: String = "finch"
   def endpoint: Endpoint[HttpRequest, HttpResponse]
-  lazy val config: Config = new Config
+  lazy val config: Config = new Config(
+    httpPort(),
+    pidFile(),
+    adminHttpPort()
+  )
 
   private var server: Option[Server] = None
   private var adminServer: Option[ListeningServer] = None
@@ -56,7 +60,7 @@ trait FinchServer extends App {
     pidFile.delete()
   }
 
-  def main() = {
+  def main(): Unit = {
     if (!config.pidPath.isEmpty) {
       writePidFile()
     }
