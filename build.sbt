@@ -1,3 +1,5 @@
+ // put this at the top of the file
+
 organization := "io.github.benwhitehead.finch"
 
 name := "finch-server"
@@ -18,6 +20,7 @@ resolvers += "Finch.io" at "http://repo.konfettin.ru"
 
 libraryDependencies ++= Seq(
   "io"              %% "finch"              % "0.1.6",
+  "com.twitter"     %% "finagle-stats"      % "6.20.0",
   "com.twitter"     %% "twitter-server"     % "1.7.3",
   "org.slf4j"       %  "slf4j-api"          % "1.7.7",
   "org.slf4j"       %  "jul-to-slf4j"       % "1.7.7",
@@ -29,3 +32,4 @@ libraryDependencies ++= Seq(
 
 parallelExecution in Test := false
 
+assemblySettings
