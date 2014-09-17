@@ -15,13 +15,10 @@
 
 package io.github.benwhitehead.finch
 
-import io.finch.Endpoint
-
 /**
  * @author Ben Whitehead
  */
 object Main extends FinchServer {
-  def endpoint = Endpoint.NotFound
   override def main() = {
     println(config)
   }

@@ -20,12 +20,9 @@ import java.lang.management.ManagementFactory
 import java.net.{InetSocketAddress, SocketAddress}
 
 import com.twitter.app.App
-import com.twitter.finagle.builder.{Server, ServerBuilder}
-import com.twitter.finagle.http.{Http, HttpMuxer, RichHttp}
+import com.twitter.finagle.http.HttpMuxer
 import com.twitter.finagle.{HttpServer, ListeningServer}
 import com.twitter.util.Await
-import io.finch._
-import io.github.benwhitehead.finch.filters._
 
 /**
  * @author Ben Whitehead
@@ -38,14 +35,12 @@ trait FinchServer extends App {
   case class Config(port: Int = 7070, pidPath: String = "", adminPort: Int = 9990)
 
   def serverName: String = "finch"
-  def endpoint: Endpoint[HttpRequest, HttpResponse]
   lazy val config: Config = new Config(
     httpPort(),
     pidFile(),
     adminHttpPort()
   )
 
-  private var server: Option[Server] = None
   private var adminServer: Option[ListeningServer] = None
 
   def writePidFile() {
@@ -70,32 +65,10 @@ trait FinchServer extends App {
     adminServer map { closeOnExit(_) }
     logger.info(s"admin http server started on: ${(adminServer map {_.boundAddress}).get}")
 
-    server = Some(startServer())
-    logger.info(s"http server started on: ${(server map {_.localAddress}).get}")
-    server map { closeOnExit(_) }
-
     adminServer map { Await.ready(_) }
   }
 
-  def serverPort: Int = (server map { case s => getPort(s.localAddress) }).get
   def adminPort: Int = (adminServer map { case s => getPort(s.boundAddress) }).get
-
-  def startServer(): Server = {
-    ServerBuilder()
-      .codec(RichHttp[HttpRequest](Http()))
-      .bindTo(new InetSocketAddress(config.port))
-      .name(s"srv/http/$serverName")
-      .build(StatsFilter andThen AccessLog andThen HandleErrors andThen endpoint.toService)
-  }
-
-  init {
-    SLF4JLogging.install()
-  }
-
-  onExit {
-    SLF4JLogging.uninstall()
-    removePidFile()
-  }
 
   private def getPort(s: SocketAddress): Int = {
     s match {
