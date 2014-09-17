@@ -17,18 +17,13 @@ package io.github.benwhitehead.finch
 
 import java.io.{File, FileOutputStream}
 import java.lang.management.ManagementFactory
-import java.net.{InetSocketAddress, SocketAddress}
 
 import com.twitter.app.App
-import com.twitter.finagle.http.HttpMuxer
-import com.twitter.finagle.{HttpServer, ListeningServer}
-import com.twitter.util.Await
 
 /**
  * @author Ben Whitehead
  */
 trait FinchServer extends App {
-  lazy val logger = org.slf4j.LoggerFactory.getLogger(getClass.getName)
 
   lazy val pid: String = ManagementFactory.getRuntimeMXBean.getName.split('@').head
 
@@ -40,8 +35,6 @@ trait FinchServer extends App {
     pidFile(),
     adminHttpPort()
   )
-
-  private var adminServer: Option[ListeningServer] = None
 
   def writePidFile() {
     val pidFile = new File(config.pidPath)
@@ -59,21 +52,6 @@ trait FinchServer extends App {
     if (!config.pidPath.isEmpty) {
       writePidFile()
     }
-    logger.info("process " + pid + " started")
-
-    adminServer = Some(HttpServer.serve(new InetSocketAddress(config.adminPort), HttpMuxer))
-    adminServer map { closeOnExit(_) }
-    logger.info(s"admin http server started on: ${(adminServer map {_.boundAddress}).get}")
-
-    adminServer map { Await.ready(_) }
-  }
-
-  def adminPort: Int = (adminServer map { case s => getPort(s.boundAddress) }).get
-
-  private def getPort(s: SocketAddress): Int = {
-    s match {
-      case inet: InetSocketAddress => inet.getPort
-      case _ => throw new RuntimeException(s"Unsupported SocketAddress type: ${s.getClass.getCanonicalName}")
-    }
+    println("process " + pid + " started")
   }
 }
