@@ -17,12 +17,13 @@ package io.github.benwhitehead.finch
 
 import java.util.logging.{LogManager, Level}
 
+import com.twitter.app.App
 import org.slf4j.bridge.SLF4JBridgeHandler
 
 /**
  * @author Ben Whitehead
  */
-object SLF4JLogging {
+trait SLF4JLogging { self: App =>
 
   def install(): Unit = {
     // Turn off Java util logging so that slf4j can configure it
@@ -44,5 +45,13 @@ object SLF4JLogging {
     finally {
       uninstall()
     }
+  }
+
+  init {
+    install()
+  }
+
+  onExit {
+    uninstall()
   }
 }

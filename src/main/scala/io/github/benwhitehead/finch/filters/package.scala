@@ -46,8 +46,11 @@ package object filters {
     }
   }
 
-  object StatsFilter extends SimpleFilter[HttpRequest, HttpResponse] with TApp with Stats {
-    val stats = statsReceiver.scope("route")
+  class StatsFilter(baseScope: String = "") extends SimpleFilter[HttpRequest, HttpResponse] with TApp with Stats {
+    val stats = {
+      if (baseScope.nonEmpty) statsReceiver.scope(s"$baseScope/route")
+      else statsReceiver.scope("route")
+    }
     def apply(request: HttpRequest, service: Service[HttpRequest, HttpResponse]): Future[HttpResponse] = {
       stats.timeFuture(s"${request.method}/Root/${request.path.stripPrefix("/")}") {
         service(request)

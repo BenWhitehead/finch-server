@@ -23,6 +23,8 @@ import com.twitter.app.App
 import com.twitter.finagle.builder.{Server, ServerBuilder}
 import com.twitter.finagle.http.{Http, HttpMuxer, RichHttp}
 import com.twitter.finagle.{HttpServer, ListeningServer}
+import com.twitter.server.Lifecycle.Warmup
+import com.twitter.server.{Stats, Admin, Lifecycle}
 import com.twitter.util.Await
 import io.finch._
 import io.github.benwhitehead.finch.filters._
@@ -30,7 +32,12 @@ import io.github.benwhitehead.finch.filters._
 /**
  * @author Ben Whitehead
  */
-trait FinchServer extends App {
+trait FinchServer extends App
+  with SLF4JLogging
+  with Admin
+  with Lifecycle
+  with Warmup
+  with Stats {
   lazy val logger = org.slf4j.LoggerFactory.getLogger(getClass.getName)
 
   lazy val pid: String = ManagementFactory.getRuntimeMXBean.getName.split('@').head
@@ -81,19 +88,15 @@ trait FinchServer extends App {
   def adminPort: Int = (adminServer map { case s => getPort(s.boundAddress) }).get
 
   def startServer(): Server = {
+    val name = s"srv/http/$serverName"
     ServerBuilder()
       .codec(RichHttp[HttpRequest](Http()))
       .bindTo(new InetSocketAddress(config.port))
-      .name(s"srv/http/$serverName")
-      .build(StatsFilter andThen AccessLog andThen HandleErrors andThen endpoint.toService)
-  }
-
-  init {
-    SLF4JLogging.install()
+      .name(name)
+      .build(new StatsFilter(name) andThen AccessLog andThen HandleErrors andThen endpoint.toService)
   }
 
   onExit {
-    SLF4JLogging.uninstall()
     removePidFile()
   }
 
