@@ -2,7 +2,7 @@ organization := "io.github.benwhitehead.finch"
 
 name := "finch-server"
 
-version := "0.1-SNAPSHOT"
+version := "0.1.0"
 
 scalaVersion := "2.10.3"
 
@@ -29,4 +29,3 @@ libraryDependencies ++= Seq(
 )
 
 parallelExecution in Test := false
-
