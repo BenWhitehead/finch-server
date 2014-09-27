@@ -20,7 +20,7 @@ import com.twitter.finagle.http.{Status, Response}
 import com.twitter.util.Future
 import io.finch._
 import io.finch.request.RequestReader
-import io.finch.response.Respond
+import io.finch.response.{BadRequest, Respond}
 import org.jboss.netty.handler.codec.http.HttpResponseStatus
 import org.jboss.netty.util.CharsetUtil
 
@@ -46,6 +46,11 @@ package object finch {
   class NotImplemented        extends Exception // 501
   class BadGateway            extends Exception // 502
   class ServiceUnavailable    extends Exception // 503
+
+  case class RespondWithException(response: Response) extends Exception
+  class AcceptJsonOnlyException extends RespondWithException(
+    BadRequest.withHeaders("Accept" -> "application/json; charset=utf-8")()
+  )
 
   object Accepted extends Respond(Status.Accepted)
   object BadGateway extends Respond(Status.BadGateway)
@@ -76,7 +81,7 @@ package object finch {
       def apply(req: HttpRequest): Future[String] = {
         req.contentLength match {
           case Some(length) if length > 0 => req.content.toString(CharsetUtil.UTF_8).toFuture
-          case _                          => new BadRequest().toFutureException
+          case _                          => new AcceptJsonOnlyException().toFutureException
         }
       }
     }
@@ -97,13 +102,13 @@ package object finch {
     def apply() = new RequestReader[JSONObject] {
       def apply(req: HttpRequest): Future[JSONObject] = {
         req.headerMap.get("Content-Type") match {
-          case Some("application/json") =>
+          case Some("application/json; charset=utf-8") =>
             JSON.parseRaw(req.content.toString(CharsetUtil.UTF_8)) match {
               case Some(obj: JSONObject) => obj.toFuture
-              case Some(arr: JSONArray) => new BadRequest().toFutureException
-              case None => new BadRequest().toFutureException
+              case Some(arr: JSONArray) => new AcceptJsonOnlyException().toFutureException
+              case None => new AcceptJsonOnlyException().toFutureException
             }
-          case _ => new BadRequest().toFutureException
+          case _ => new AcceptJsonOnlyException().toFutureException
         }
       }
     }
@@ -113,13 +118,13 @@ package object finch {
     def apply() = new RequestReader[JSONArray] {
       def apply(req: HttpRequest): Future[JSONArray] = {
         req.headerMap.get("Content-Type") match {
-          case Some("application/json") =>
+          case Some("application/json; charset=utf-8") =>
             JSON.parseRaw(req.content.toString(CharsetUtil.UTF_8)) match {
-              case Some(obj: JSONObject) => new BadRequest().toFutureException
+              case Some(obj: JSONObject) => new AcceptJsonOnlyException().toFutureException
               case Some(arr: JSONArray) => arr.toFuture
-              case None => new BadRequest().toFutureException
+              case None => new AcceptJsonOnlyException().toFutureException
             }
-          case _ => new BadRequest().toFutureException
+          case _ => new AcceptJsonOnlyException().toFutureException
         }
       }
     }
@@ -129,7 +134,7 @@ package object finch {
     def apply() = new RequestReader[Option[JSONObject]] {
       def apply(req: HttpRequest): Future[Option[JSONObject]] = {
         req.headerMap.get("Content-Type") match {
-          case Some("application/json") =>
+          case Some("application/json; charset=utf-8") =>
             JSON.parseRaw(req.content.toString(CharsetUtil.UTF_8)) match {
               case Some(obj: JSONObject) => Some(obj).toFuture
               case Some(arr: JSONArray) => None.toFuture
@@ -145,7 +150,7 @@ package object finch {
     def apply() = new RequestReader[Option[JSONArray]] {
       def apply(req: HttpRequest): Future[Option[JSONArray]] = {
         req.headerMap.get("Content-Type") match {
-          case Some("application/json") =>
+          case Some("application/json; charset=utf-8") =>
             JSON.parseRaw(req.content.toString(CharsetUtil.UTF_8)) match {
               case Some(obj: JSONObject) => None.toFuture
               case Some(arr: JSONArray) => Some(arr).toFuture

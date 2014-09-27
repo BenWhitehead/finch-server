@@ -22,10 +22,9 @@ import com.twitter.app.{App => TApp}
 import com.twitter.finagle.{Service, SimpleFilter}
 import com.twitter.server.Stats
 import com.twitter.util.Future
-import io.finch._
 import io.finch.json.JsonObject
 import io.finch.request.{ParamNotFound, ValidationFailed}
-import io.finch.response._
+import io.finch.{response, _}
 
 /**
  * @author Ben Whitehead
@@ -36,23 +35,25 @@ package object filters {
     lazy val logger = org.slf4j.LoggerFactory.getLogger(getClass.getName)
     def apply(request: HttpRequest, service: Service[HttpRequest, HttpResponse]) = {
       service(request) handle {
-        case e: ValidationFailed => BadRequest(JsonObject("message" -> e.getMessage))
-        case e: ParamNotFound => BadRequest(JsonObject("message" -> e.getMessage))
-        case e: BadRequest => BadRequest()
-        case e: Unauthorized => Unauthorized()
-        case e: PaymentRequired => PaymentRequired()
-        case e: Forbidden => Forbidden()
-        case e: NotFound => NotFound()
-        case e: MethodNotAllowed => MethodNotAllowed()
-        case e: NotAcceptable => NotAcceptable()
-        case e: RequestTimeOut => RequestTimeOut()
-        case e: Conflict => Conflict()
-        case e: PreconditionFailed => PreconditionFailed()
-        case e: TooManyRequests => TooManyRequests()
-        case e: NotImplemented => NotImplemented()
-        case e: BadGateway => BadGateway()
-        case e: ServiceUnavailable => ServiceUnavailable()
-        case t: Throwable => logger.error("", t); InternalServerError()
+        case e: ValidationFailed     => response.BadRequest(JsonObject("message" -> e.getMessage))
+        case e: ParamNotFound        => response.BadRequest(JsonObject("message" -> e.getMessage))
+        case e: RespondWithException => e.response
+        case e: BadRequest           => response.BadRequest()
+        case e: Unauthorized         => response.Unauthorized()
+        case e: PaymentRequired      => response.PaymentRequired()
+        case e: Forbidden            => response.Forbidden()
+        case e: NotFound             => response.NotFound()
+        case e: MethodNotAllowed     => response.MethodNotAllowed()
+        case e: NotAcceptable        => response.NotAcceptable()
+        case e: RequestTimeOut       => response.RequestTimeOut()
+        case e: Conflict             => response.Conflict()
+        case e: PreconditionFailed   => response.PreconditionFailed()
+        case e: TooManyRequests      => response.TooManyRequests()
+        case e: NotImplemented       => response.NotImplemented()
+        case e: InternalServerError  => response.InternalServerError()
+        case e: BadGateway           => BadGateway()
+        case e: ServiceUnavailable   => ServiceUnavailable()
+        case t: Throwable            => logger.error("", t); response.InternalServerError()
       }
     }
   }
