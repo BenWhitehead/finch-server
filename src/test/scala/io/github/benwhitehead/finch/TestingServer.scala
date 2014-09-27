@@ -11,7 +11,7 @@ import io.finch.response._
  * @author Ben Whitehead
  */
 
-object Echo extends SimpleEndpoint {
+object Echo extends HttpEndpoint {
   def service(echo: String) = new Service[HttpRequest, HttpResponse] {
     def apply(request: HttpRequest): Future[HttpResponse] = {
       Ok(echo).toFuture
@@ -22,10 +22,10 @@ object Echo extends SimpleEndpoint {
   }
 }
 
-object TestingServer extends FinchServer {
+object TestingServer extends SimpleHttpFinchServer {
   override lazy val config = Config(port = 17070, adminPort = 19990)
   override lazy val serverName = "test-server"
   def endpoint = {
-    Echo orElse Endpoint.NotFound
+    Echo
   }
 }

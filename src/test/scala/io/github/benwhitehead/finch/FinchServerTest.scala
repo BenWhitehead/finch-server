@@ -34,7 +34,7 @@ import org.scalatest.{BeforeAndAfterEach, FreeSpec}
 class FinchServerTest extends FreeSpec with BeforeAndAfterEach {
   lazy val logger = org.slf4j.LoggerFactory.getLogger(getClass.getName)
 
-  class Echo extends SimpleEndpoint {
+  class Echo extends HttpEndpoint {
     var echos: List[String] = Nil
 
     def service(echo: String) = new Service[HttpRequest, HttpResponse] {
@@ -48,14 +48,14 @@ class FinchServerTest extends FreeSpec with BeforeAndAfterEach {
     }
   }
 
-  class TestServer extends FinchServer {
+  class TestServer extends SimpleHttpFinchServer {
     lazy val pidFile = File.createTempFile("testServer", ".pid", new File(System.getProperty("java.io.tmpdir")))
     pidFile.deleteOnExit()
     override lazy val config = Config(port = 0, pidPath = pidFile.getAbsolutePath, adminPort = 0)
     override lazy val serverName = "test-server"
     lazy val echos = new Echo
     def endpoint = {
-       echos orElse Endpoint.NotFound
+       echos
     }
   }
 

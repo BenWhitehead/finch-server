@@ -32,16 +32,27 @@ import io.finch.response._
  */
 package object filters {
 
-  object HandleErrors extends SimpleFilter[HttpRequest, HttpResponse] {
+  object HandleExceptions extends SimpleFilter[HttpRequest, HttpResponse] {
     lazy val logger = org.slf4j.LoggerFactory.getLogger(getClass.getName)
     def apply(request: HttpRequest, service: Service[HttpRequest, HttpResponse]) = {
       service(request) handle {
-        case e: NotFound          => NotFound()
-        case e: BadRequest        => BadRequest()
-        case e: ValidationFailed  => BadRequest(JsonObject("message" -> e.getMessage))
-        case e: ParamNotFound     => BadRequest(JsonObject("message" -> e.getMessage))
-        case e: Forbidden         => Forbidden()
-        case t: Throwable         => logger.error("", t); InternalServerError()
+        case e: ValidationFailed => BadRequest(JsonObject("message" -> e.getMessage))
+        case e: ParamNotFound => BadRequest(JsonObject("message" -> e.getMessage))
+        case e: BadRequest => BadRequest()
+        case e: Unauthorized => Unauthorized()
+        case e: PaymentRequired => PaymentRequired()
+        case e: Forbidden => Forbidden()
+        case e: NotFound => NotFound()
+        case e: MethodNotAllowed => MethodNotAllowed()
+        case e: NotAcceptable => NotAcceptable()
+        case e: RequestTimeOut => RequestTimeOut()
+        case e: Conflict => Conflict()
+        case e: PreconditionFailed => PreconditionFailed()
+        case e: TooManyRequests => TooManyRequests()
+        case e: NotImplemented => NotImplemented()
+        case e: BadGateway => BadGateway()
+        case e: ServiceUnavailable => ServiceUnavailable()
+        case t: Throwable => logger.error("", t); InternalServerError()
       }
     }
   }

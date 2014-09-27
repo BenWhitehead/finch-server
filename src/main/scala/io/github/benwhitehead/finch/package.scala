@@ -16,10 +16,11 @@
 package io.github.benwhitehead
 
 import com.twitter.finagle.Service
-import com.twitter.finagle.http.Response
+import com.twitter.finagle.http.{Status, Response}
 import com.twitter.util.Future
 import io.finch._
 import io.finch.request.RequestReader
+import io.finch.response.Respond
 import org.jboss.netty.handler.codec.http.HttpResponseStatus
 import org.jboss.netty.util.CharsetUtil
 
@@ -27,11 +28,28 @@ import scala.util.parsing.json.{JSON, JSONArray, JSONObject}
 
 package object finch {
 
-  abstract class SimpleEndpoint extends Endpoint[HttpRequest, HttpResponse]
+  trait SimpleEndpoint[Request <: HttpRequest] extends Endpoint[Request, HttpResponse]
+  trait HttpEndpoint extends SimpleEndpoint[HttpRequest]
 
-  class NotFound extends Exception
-  class BadRequest extends Exception
-  class Forbidden extends Exception
+  class BadRequest            extends Exception // 400
+  class Unauthorized          extends Exception // 401
+  class PaymentRequired       extends Exception // 402
+  class Forbidden             extends Exception // 403
+  class NotFound              extends Exception // 404
+  class MethodNotAllowed      extends Exception // 405
+  class NotAcceptable         extends Exception // 406
+  class RequestTimeOut        extends Exception // 408
+  class Conflict              extends Exception // 409
+  class PreconditionFailed    extends Exception // 412
+  class TooManyRequests       extends Exception // 429
+  class InternalServerError   extends Exception // 500
+  class NotImplemented        extends Exception // 501
+  class BadGateway            extends Exception // 502
+  class ServiceUnavailable    extends Exception // 503
+
+  object Accepted extends Respond(Status.Accepted)
+  object BadGateway extends Respond(Status.BadGateway)
+  object ServiceUnavailable extends Respond(Status.ServiceUnavailable)
 
   // this is a class rather than an object so that it can be type
   // parametrized

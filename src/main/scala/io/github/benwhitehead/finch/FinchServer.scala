@@ -20,11 +20,12 @@ import java.lang.management.ManagementFactory
 import java.net.{InetSocketAddress, SocketAddress}
 
 import com.twitter.app.App
+import com.twitter.finagle._
 import com.twitter.finagle.builder.{Server, ServerBuilder}
+import com.twitter.finagle.http.service.NotFoundService
 import com.twitter.finagle.http.{Http, HttpMuxer, RichHttp}
-import com.twitter.finagle.{HttpServer, ListeningServer}
 import com.twitter.server.Lifecycle.Warmup
-import com.twitter.server.{Stats, Admin, Lifecycle}
+import com.twitter.server.{Admin, Lifecycle, Stats}
 import com.twitter.util.Await
 import io.finch._
 import io.github.benwhitehead.finch.filters._
@@ -32,7 +33,7 @@ import io.github.benwhitehead.finch.filters._
 /**
  * @author Ben Whitehead
  */
-trait FinchServer extends App
+trait FinchServer[Request <: HttpRequest] extends App
   with SLF4JLogging
   with Admin
   with Lifecycle
@@ -45,7 +46,8 @@ trait FinchServer extends App
   case class Config(port: Int = 7070, pidPath: String = "", adminPort: Int = 9990)
 
   def serverName: String = "finch"
-  def endpoint: Endpoint[HttpRequest, HttpResponse]
+  def endpoint: Endpoint[Request, HttpResponse]
+  def filter: Filter[HttpRequest, HttpResponse, Request, HttpResponse]
   lazy val config: Config = new Config(
     httpPort(),
     pidFile(),
@@ -93,11 +95,26 @@ trait FinchServer extends App
       .codec(RichHttp[HttpRequest](Http()))
       .bindTo(new InetSocketAddress(config.port))
       .name(name)
-      .build(new StatsFilter(name) andThen AccessLog andThen HandleErrors andThen endpoint.toService)
+      .build(getService(name))
   }
+
+  def getService(serviceName: String) = {
+    new StatsFilter(name) andThen
+      AccessLog andThen
+      errorHandler andThen
+      filter andThen
+      (endpoint orElse NotFound).toService
+  }
+
+  def errorHandler: Filter[HttpRequest, HttpResponse, HttpRequest, HttpResponse] = HandleExceptions
 
   onExit {
     removePidFile()
+  }
+
+  val NotFound = new Endpoint[Request, HttpResponse] {
+    lazy val underlying = new NotFoundService[Request]
+    def route = { case _ => underlying }
   }
 
   private def getPort(s: SocketAddress): Int = {
@@ -106,4 +123,8 @@ trait FinchServer extends App
       case _ => throw new RuntimeException(s"Unsupported SocketAddress type: ${s.getClass.getCanonicalName}")
     }
   }
+}
+
+trait SimpleHttpFinchServer extends FinchServer[HttpRequest] {
+  override def filter = Filter.identity
 }
