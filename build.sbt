@@ -2,7 +2,7 @@ organization := "io.github.benwhitehead.finch"
 
 name := "finch-server"
 
-version := "0.2.1"
+version := "0.3.0-SNAPSHOT"
 
 scalaVersion := "2.10.3"
 
@@ -29,3 +29,5 @@ libraryDependencies ++= Seq(
 )
 
 parallelExecution in Test := false
+
+net.virtualvoid.sbt.graph.Plugin.graphSettings

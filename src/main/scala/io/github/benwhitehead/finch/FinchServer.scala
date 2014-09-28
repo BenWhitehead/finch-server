@@ -15,11 +15,12 @@
 
 package io.github.benwhitehead.finch
 
-import java.io.{File, FileOutputStream}
+import java.io.{FileNotFoundException, File, FileOutputStream}
 import java.lang.management.ManagementFactory
 import java.net.{InetSocketAddress, SocketAddress}
 
 import com.twitter.app.App
+import com.twitter.conversions.storage.intToStorageUnitableWholeNumber
 import com.twitter.finagle._
 import com.twitter.finagle.builder.{Server, ServerBuilder}
 import com.twitter.finagle.http.service.NotFoundService
@@ -43,7 +44,15 @@ trait FinchServer[Request <: HttpRequest] extends App
 
   lazy val pid: String = ManagementFactory.getRuntimeMXBean.getName.split('@').head
 
-  case class Config(port: Int = 7070, pidPath: String = "", adminPort: Int = 9990)
+  case class Config(
+    port: Int = 7070,
+    pidPath: String = "",
+    adminPort: Int = 9990,
+    httpsPort: Int = 7443,
+    certificatePath: String = "",
+    keyPath: String = "",
+    maxRequestSize: Int = 5
+  )
 
   def serverName: String = "finch"
   def endpoint: Endpoint[Request, HttpResponse]
@@ -51,10 +60,15 @@ trait FinchServer[Request <: HttpRequest] extends App
   lazy val config: Config = new Config(
     httpPort(),
     pidFile(),
-    adminHttpPort()
+    adminHttpPort(),
+    httpsPort(),
+    certificatePath(),
+    keyPath(),
+    maxRequestSize()
   )
 
   private var server: Option[Server] = None
+  private var tlsServer: Option[Server] = None
   private var adminServer: Option[ListeningServer] = None
 
   def writePidFile() {
@@ -83,17 +97,36 @@ trait FinchServer[Request <: HttpRequest] extends App
     logger.info(s"http server started on: ${(server map {_.localAddress}).get}")
     server map { closeOnExit(_) }
 
+    if (!config.certificatePath.isEmpty && !config.keyPath.isEmpty) {
+      verifyFileReadable(config.certificatePath, "SSL Certificate")
+      verifyFileReadable(config.keyPath, "SSL Key")
+      tlsServer = Some(startTlsServer())
+      logger.info(s"https server started on: ${(tlsServer map {_.localAddress}).get}")
+    }
+
+    tlsServer map { closeOnExit(_) }
     adminServer map { Await.ready(_) }
   }
 
   def serverPort: Int = (server map { case s => getPort(s.localAddress) }).get
+  def tlsServerPort: Int = (tlsServer map { case s => getPort(s.localAddress) }).get
   def adminPort: Int = (adminServer map { case s => getPort(s.boundAddress) }).get
 
   def startServer(): Server = {
     val name = s"srv/http/$serverName"
     ServerBuilder()
-      .codec(RichHttp[HttpRequest](Http()))
+      .codec(RichHttp[HttpRequest](Http().maxRequestSize(config.maxRequestSize.megabytes)))
       .bindTo(new InetSocketAddress(config.port))
+      .name(name)
+      .build(getService(name))
+  }
+
+  def startTlsServer(): Server = {
+    val name = s"srv/https/$serverName"
+    ServerBuilder()
+      .codec(RichHttp[HttpRequest](Http().maxRequestSize(config.maxRequestSize.megabytes)))
+      .bindTo(new InetSocketAddress(config.httpsPort))
+      .tls(config.certificatePath, config.keyPath)
       .name(name)
       .build(getService(name))
   }
@@ -121,6 +154,13 @@ trait FinchServer[Request <: HttpRequest] extends App
     s match {
       case inet: InetSocketAddress => inet.getPort
       case _ => throw new RuntimeException(s"Unsupported SocketAddress type: ${s.getClass.getCanonicalName}")
+    }
+  }
+
+  private def verifyFileReadable(path: String, description: String): Unit = {
+    val file = new File(path)
+    if (file.isFile && !file.canRead){
+      throw new FileNotFoundException(s"$description could not be read: ${config.keyPath}")
     }
   }
 }
