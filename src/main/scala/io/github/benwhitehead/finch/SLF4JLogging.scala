@@ -20,38 +20,18 @@ import java.util.logging.{LogManager, Level}
 import com.twitter.app.App
 import org.slf4j.bridge.SLF4JBridgeHandler
 
-/**
- * @author Ben Whitehead
- */
 trait SLF4JLogging { self: App =>
-
-  def install(): Unit = {
+  init {
     // Turn off Java util logging so that slf4j can configure it
     LogManager.getLogManager.getLogger("").getHandlers.toList.map { l =>
       l.setLevel(Level.OFF)
     }
+    org.slf4j.LoggerFactory.getLogger("slf4j-logging").debug("Installing SLF4JLogging")
     SLF4JBridgeHandler.install()
   }
 
-  def uninstall(): Unit = {
-    SLF4JBridgeHandler.uninstall()
-  }
-
-  def apply(f: => Unit): Unit = {
-    install()
-    try {
-      f
-    }
-    finally {
-      uninstall()
-    }
-  }
-
-  init {
-    install()
-  }
-
   onExit {
-    uninstall()
+    org.slf4j.LoggerFactory.getLogger("slf4j-logging").debug("Uninstalling SLF4JLogging")
+    SLF4JBridgeHandler.uninstall()
   }
 }

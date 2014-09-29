@@ -26,9 +26,6 @@ import io.finch.json.JsonObject
 import io.finch.request.{ParamNotFound, ValidationFailed}
 import io.finch.{response, _}
 
-/**
- * @author Ben Whitehead
- */
 package object filters {
 
   object HandleExceptions extends SimpleFilter[HttpRequest, HttpResponse] {

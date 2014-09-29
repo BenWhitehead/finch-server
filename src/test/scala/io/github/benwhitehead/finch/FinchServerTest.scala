@@ -48,7 +48,7 @@ class FinchServerTest extends FreeSpec with BeforeAndAfterEach {
     }
   }
 
-  class TestServer extends SimpleHttpFinchServer {
+  class TestServer extends SimpleFinchServer {
     lazy val pidFile = File.createTempFile("testServer", ".pid", new File(System.getProperty("java.io.tmpdir")))
     pidFile.deleteOnExit()
     override lazy val config = Config(port = 0, pidPath = pidFile.getAbsolutePath, adminPort = 0)

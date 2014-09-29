@@ -28,12 +28,12 @@ class FlagsTest extends FreeSpec with BeforeAndAfterEach {
 
   var origSm: SecurityManager = null
 
-  var server: SimpleHttpFinchServer = null
+  var server: SimpleFinchServer = null
   override protected def beforeEach() = {
     origSm = System.getSecurityManager
     System.setSecurityManager(new SystemExitTrap)
 
-    server = new SimpleHttpFinchServer {
+    server = new SimpleFinchServer {
       def endpoint = Endpoint.NotFound
       override def main() = {}
     }

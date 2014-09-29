@@ -22,7 +22,7 @@ object Echo extends HttpEndpoint {
   }
 }
 
-object TestingServer extends SimpleHttpFinchServer {
+object TestingServer extends SimpleFinchServer {
   override lazy val config = Config(port = 17070, adminPort = 19990)
   override lazy val serverName = "test-server"
   def endpoint = {

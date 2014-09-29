@@ -31,9 +31,6 @@ import com.twitter.util.Await
 import io.finch._
 import io.github.benwhitehead.finch.filters._
 
-/**
- * @author Ben Whitehead
- */
 trait FinchServer[Request <: HttpRequest] extends App
   with SLF4JLogging
   with Admin
@@ -165,6 +162,6 @@ trait FinchServer[Request <: HttpRequest] extends App
   }
 }
 
-trait SimpleHttpFinchServer extends FinchServer[HttpRequest] {
+trait SimpleFinchServer extends FinchServer[HttpRequest] {
   override def filter = Filter.identity
 }
