@@ -50,11 +50,7 @@ trait FinchServer[Request <: HttpRequest] extends App
     keyPath: String = "",
     maxRequestSize: Int = 5
   )
-
-  def serverName: String = "finch"
-  def endpoint: Endpoint[Request, HttpResponse]
-  def filter: Filter[HttpRequest, HttpResponse, Request, HttpResponse]
-  lazy val config: Config = new Config(
+  object DefaultConfig extends Config(
     httpPort(),
     pidFile(),
     adminHttpPort(),
@@ -63,6 +59,11 @@ trait FinchServer[Request <: HttpRequest] extends App
     keyPath(),
     maxRequestSize()
   )
+
+  def serverName: String = "finch"
+  def endpoint: Endpoint[Request, HttpResponse]
+  def filter: Filter[HttpRequest, HttpResponse, Request, HttpResponse]
+  lazy val config: Config = DefaultConfig
 
   private var server: Option[Server] = None
   private var tlsServer: Option[Server] = None
@@ -129,7 +130,7 @@ trait FinchServer[Request <: HttpRequest] extends App
   }
 
   def getService(serviceName: String) = {
-    new StatsFilter(name) andThen
+    new StatsFilter(serviceName) andThen
       AccessLog andThen
       errorHandler andThen
       filter andThen
