@@ -48,7 +48,9 @@ trait FinchServer[Request <: HttpRequest] extends App
     httpsPort: Int = 7443,
     certificatePath: String = "",
     keyPath: String = "",
-    maxRequestSize: Int = 5
+    maxRequestSize: Int = 5,
+    decompressionEnabled: Boolean = false,
+    compressionLevel: Int = 6
   )
   object DefaultConfig extends Config(
     httpPort(),
@@ -57,7 +59,9 @@ trait FinchServer[Request <: HttpRequest] extends App
     httpsPort(),
     certificatePath(),
     keyPath(),
-    maxRequestSize()
+    maxRequestSize(),
+    decompressionEnabled(),
+    compressionLevel()
   )
 
   def serverName: String = "finch"
@@ -113,7 +117,7 @@ trait FinchServer[Request <: HttpRequest] extends App
   def startServer(): Server = {
     val name = s"srv/http/$serverName"
     ServerBuilder()
-      .codec(RichHttp[HttpRequest](Http().maxRequestSize(config.maxRequestSize.megabytes)))
+      .codec(getCodec)
       .bindTo(new InetSocketAddress(config.port))
       .name(name)
       .build(getService(name))
@@ -122,11 +126,23 @@ trait FinchServer[Request <: HttpRequest] extends App
   def startTlsServer(): Server = {
     val name = s"srv/https/$serverName"
     ServerBuilder()
-      .codec(RichHttp[HttpRequest](Http().maxRequestSize(config.maxRequestSize.megabytes)))
+      .codec(getCodec)
       .bindTo(new InetSocketAddress(config.httpsPort))
       .tls(config.certificatePath, config.keyPath)
       .name(name)
       .build(getService(name))
+  }
+
+  def getCodec: RichHttp[HttpRequest] = {
+    val http = Http()
+      .maxRequestSize(config.maxRequestSize.megabytes)
+    if (config.decompressionEnabled) {
+      http
+        .decompressionEnabled(config.decompressionEnabled)
+        .compressionLevel(config.compressionLevel)
+    }
+
+    RichHttp[HttpRequest](http)
   }
 
   def getService(serviceName: String) = {

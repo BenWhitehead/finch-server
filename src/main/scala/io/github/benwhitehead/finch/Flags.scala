@@ -9,3 +9,5 @@ object httpsPort extends GlobalFlag[Int](7443, "the TCP port for the https serve
 object certificatePath extends GlobalFlag[String]("", "Path to PEM format SSL certificate file")
 object keyPath extends GlobalFlag[String]("", "Path to SSL Key file")
 object maxRequestSize extends GlobalFlag[Int](5, "Max request size (in megabytes)")
+object decompressionEnabled extends GlobalFlag[Boolean](false, "Enables deflate,gzip Content-Encoding handling")
+object compressionLevel extends GlobalFlag[Int](6, "Enables deflate,gzip Content-Encoding handling")

@@ -34,7 +34,7 @@ package object request {
       def apply(req: HttpRequest): Future[String] = {
         req.contentLength match {
           case Some(length) if length > 0 => req.content.toString(CharsetUtil.UTF_8).toFuture
-          case _                          => new AcceptJsonOnlyException().toFutureException
+          case _                          => new BadRequest().toFutureException
         }
       }
     }
