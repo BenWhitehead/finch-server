@@ -17,7 +17,8 @@ javacOptions in doc := Seq("-source", "1.7")
 resolvers += "Twitter" at "http://maven.twttr.com/"
 
 libraryDependencies ++= Seq(
-  "com.twitter"     %% "twitter-server"     % "1.7.3"
+  "com.twitter"     %% "twitter-server"     % "1.7.3",
+  "com.twitter"     %% "finagle-core"       % "6.22.0"
 )
 
 parallelExecution in Test := false
