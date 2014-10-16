@@ -6,7 +6,7 @@ import com.twitter.finagle.http.path.{->, /, Root}
 import com.twitter.util.Future
 import io.finch._
 import io.finch.response._
-import io.github.benwhitehead.finch.request.{RequiredStringBody, RequiredBody, DelegateService}
+import io.github.benwhitehead.finch.request.{RequiredStringBody, DelegateService}
 
 /**
  * @author Ben Whitehead
