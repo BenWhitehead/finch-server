@@ -91,7 +91,7 @@ trait FinchServer[Request <: HttpRequest] extends App
     }
     logger.info("process " + pid + " started")
 
-    adminServer = Some(HttpServer.serve(new InetSocketAddress(config.adminPort), HttpMuxer))
+    adminServer = Some(com.twitter.finagle.Http.serve(new InetSocketAddress(config.adminPort), HttpMuxer))
     adminServer map { closeOnExit(_) }
     logger.info(s"admin http server started on: ${(adminServer map {_.boundAddress}).get}")
 

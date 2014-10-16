@@ -64,7 +64,7 @@ class FlagsTest extends FreeSpec with BeforeAndAfterEach {
       assert(config.pidPath === "/tmp/server.pid")
     }
 
-    "-help works" ignore {  // this test is broken when used with finagle 6.20.0, but finagle 6.20.0 is needed for twitter-server
+    "-help works" in {
       val stderr = System.err
       val baos = new ByteArrayOutputStream()
       System.setErr(new PrintStream(baos))
