@@ -1,12 +1,13 @@
 package io.github.benwhitehead.finch
 
 import com.twitter.finagle.Service
-import com.twitter.finagle.http.Method
-import com.twitter.finagle.http.path.{->, /, Root}
+import com.twitter.finagle.httpx.Method
+import com.twitter.finagle.httpx.path.{->, /, Root}
 import com.twitter.util.Future
 import io.finch._
+import io.finch.request.RequiredStringBody
 import io.finch.response._
-import io.github.benwhitehead.finch.request.{RequiredStringBody, DelegateService}
+import io.github.benwhitehead.finch.request.DelegateService
 
 /**
  * @author Ben Whitehead
@@ -34,7 +35,7 @@ object JsonBlob extends HttpEndpoint {
 
   lazy val handlePost = new Service[HttpRequest, HttpResponse] {
     lazy val reader = for {
-      body <- RequiredStringBody()
+      body <- RequiredStringBody
     } yield body
 
     def apply(request: HttpRequest): Future[HttpResponse] = {
@@ -45,13 +46,14 @@ object JsonBlob extends HttpEndpoint {
     }
   }
   def route = {
-    case Method.Get -> Root / "json" => service
+    case Method.Get  -> Root / "json" => service
     case Method.Post -> Root / "json" => handlePost
   }
 }
 
 object TestingServer extends SimpleFinchServer {
-  override lazy val config = Config(port = 17070, adminPort = 19990, decompressionEnabled = true, compressionLevel = 6)
+  override lazy val defaultHttpPort = 19990
+  override lazy val config = Config(port = 17070)
   override lazy val serverName = "test-server"
   def endpoint = {
     Echo orElse JsonBlob

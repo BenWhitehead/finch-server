@@ -16,6 +16,7 @@
 package io.github.benwhitehead.finch
 
 import java.io.{ByteArrayOutputStream, PrintStream}
+import java.net.InetSocketAddress
 import java.security.Permission
 
 import io.finch.Endpoint
@@ -48,19 +49,19 @@ class FlagsTest extends FreeSpec with BeforeAndAfterEach {
       server.main(Array())
       val config = server.config
       assert(config.port === 7070)
-      assert(config.adminPort === 9990)
+      assert(server.adminPort() === new InetSocketAddress(9990))
       assert(config.pidPath === "")
     }
 
     "set" in {
       server.main(Array(
         "-io.github.benwhitehead.finch.httpPort=1234",
-        "-io.github.benwhitehead.finch.adminHttpPort=4321",
+        "-admin.port=:4321",
         "-io.github.benwhitehead.finch.pidFile=/tmp/server.pid"
       ))
       val config = server.config
       assert(config.port === 1234)
-      assert(config.adminPort === 4321)
+      assert(server.adminPort() === new InetSocketAddress(4321))
       assert(config.pidPath === "/tmp/server.pid")
     }
 
@@ -75,7 +76,7 @@ class FlagsTest extends FreeSpec with BeforeAndAfterEach {
         case e: SecurityException =>
           assert(e.getMessage === "System.exit(1) trapped")
           val string = baos.toString
-          assert(string.contains("-io.github.benwhitehead.finch.adminHttpPort"))
+          assert(string.contains("-admin.port"))
           assert(string.contains("-io.github.benwhitehead.finch.httpPort"))
           assert(string.contains("-io.github.benwhitehead.finch.pidFile"))
       } finally {
