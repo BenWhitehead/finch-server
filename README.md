@@ -25,6 +25,6 @@ Compiled for scala 2.10 and 2.11
 resolvers += "BenWhitehead" at "http://storage.googleapis.com/benwhitehead_me/maven/public"
 
 libraryDependencies ++= Seq(
-  "io.github.benwhitehead.finch" %% "finch-server" % "0.6.0"
+  "io.github.benwhitehead.finch" %% "finch-server" % "0.7.0"
 )
 ```
