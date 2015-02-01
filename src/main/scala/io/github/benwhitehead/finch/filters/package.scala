@@ -63,8 +63,11 @@ package object filters {
       else statsReceiver.scope("route")
     }
     def apply(request: HttpRequest, service: Service[HttpRequest, HttpResponse]): Future[HttpResponse] = {
-      stats.timeFuture(s"${request.method}/Root/${request.path.stripPrefix("/")}") {
-        service(request)
+      val label = s"${request.method}/Root/${request.path.stripPrefix("/")}"
+      stats.timeFuture(label) {
+        val f = service(request)
+        stats.counter(label).incr()
+        f
       }
     }
   }
