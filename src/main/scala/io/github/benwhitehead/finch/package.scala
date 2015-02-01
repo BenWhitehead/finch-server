@@ -26,21 +26,22 @@ package object finch {
   trait TypedEndpoint[Request <: HttpRequest] extends Endpoint[Request, HttpResponse]
   trait HttpEndpoint extends TypedEndpoint[HttpRequest]
 
-  class BadRequest            extends Exception // 400
-  class Unauthorized          extends Exception // 401
-  class PaymentRequired       extends Exception // 402
-  class Forbidden             extends Exception // 403
-  class NotFound              extends Exception // 404
-  class MethodNotAllowed      extends Exception // 405
-  class NotAcceptable         extends Exception // 406
-  class RequestTimeOut        extends Exception // 408
-  class Conflict              extends Exception // 409
-  class PreconditionFailed    extends Exception // 412
-  class TooManyRequests       extends Exception // 429
-  class InternalServerError   extends Exception // 500
-  class NotImplemented        extends Exception // 501
-  class BadGateway            extends Exception // 502
-  class ServiceUnavailable    extends Exception // 503
+  sealed class HttpException(val status: Int) extends Exception
+  class BadRequest            extends HttpException(400)
+  class Unauthorized          extends HttpException(401)
+  class PaymentRequired       extends HttpException(402)
+  class Forbidden             extends HttpException(403)
+  class NotFound              extends HttpException(404)
+  class MethodNotAllowed      extends HttpException(405)
+  class NotAcceptable         extends HttpException(406)
+  class RequestTimeOut        extends HttpException(408)
+  class Conflict              extends HttpException(409)
+  class PreconditionFailed    extends HttpException(412)
+  class TooManyRequests       extends HttpException(429)
+  class InternalServerError   extends HttpException(500)
+  class NotImplemented        extends HttpException(501)
+  class BadGateway            extends HttpException(502)
+  class ServiceUnavailable    extends HttpException(503)
 
   case class RespondWithException(response: Response) extends Exception
   class AcceptJsonOnlyException extends RespondWithException(

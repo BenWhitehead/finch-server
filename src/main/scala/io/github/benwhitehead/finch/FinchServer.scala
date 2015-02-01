@@ -136,20 +136,27 @@ trait FinchServer[Request <: HttpRequest] extends App
   def getService(serviceName: String): Service[HttpRequest, HttpResponse] = {
     new StatsFilter(serviceName) andThen
       AccessLog andThen
-      errorHandler andThen
+      errorHandler(serviceName) andThen
       filter andThen
-      (endpoint orElse NotFound)
+      (endpoint orElse NotFound(serviceName))
   }
 
-  def errorHandler: Filter[HttpRequest, HttpResponse, HttpRequest, HttpResponse] = HandleExceptions
+  def errorHandler(serviceName: String): Filter[HttpRequest, HttpResponse, HttpRequest, HttpResponse] = new HandleExceptions(serviceName)
 
   onExit {
     removePidFile()
   }
 
-  val NotFound = new Endpoint[Request, HttpResponse] {
+  def NotFound(serviceName: String) = new Endpoint[Request, HttpResponse] {
     lazy val underlying = new NotFoundService[Request]
-    def route = { case _ => underlying }
+    val stats404 = {
+      val stats = {
+        if (serviceName.nonEmpty) statsReceiver.scope(s"$serviceName/error")
+        else statsReceiver.scope("error")
+      }
+      stats.counter("404")
+    }
+    def route = { case _ => stats404.incr(); underlying }
   }
 
   private def getPort(s: SocketAddress): Int = {

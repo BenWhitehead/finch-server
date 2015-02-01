@@ -29,31 +29,45 @@ import java.util.Date
 
 package object filters {
 
-  object HandleExceptions extends SimpleFilter[HttpRequest, HttpResponse] {
+  class HandleExceptions(baseScope: String = "") extends SimpleFilter[HttpRequest, HttpResponse] with TApp with Stats {
     lazy val logger = org.slf4j.LoggerFactory.getLogger(getClass.getName)
+    val stats = {
+      if (baseScope.nonEmpty) statsReceiver.scope(s"$baseScope/error")
+      else statsReceiver.scope("error")
+    }
     def apply(request: HttpRequest, service: Service[HttpRequest, HttpResponse]) = {
       import io.finch.json._
       service(request) handle {
-        case e: ValidationFailed     => response.BadRequest(Json.obj("message" -> e.getMessage))
-        case e: ParamNotFound        => response.BadRequest(Json.obj("message" -> e.getMessage))
-        case e: RespondWithException => e.response
-        case e: BadRequest           => response.BadRequest()
-        case e: Unauthorized         => response.Unauthorized()
-        case e: PaymentRequired      => response.PaymentRequired()
-        case e: Forbidden            => response.Forbidden()
-        case e: NotFound             => response.NotFound()
-        case e: MethodNotAllowed     => response.MethodNotAllowed()
-        case e: NotAcceptable        => response.NotAcceptable()
-        case e: RequestTimeOut       => response.RequestTimeOut()
-        case e: Conflict             => response.Conflict()
-        case e: PreconditionFailed   => response.PreconditionFailed()
-        case e: TooManyRequests      => response.TooManyRequests()
-        case e: NotImplemented       => response.NotImplemented()
-        case e: InternalServerError  => response.InternalServerError()
-        case e: BadGateway           => response.BadGateway()
-        case e: ServiceUnavailable   => response.ServiceUnavailable()
-        case t: Throwable            => logger.error("", t); response.InternalServerError()
+        case e: ValidationFailed     => countStatus(400); response.BadRequest(Json.obj("message" -> e.getMessage))
+        case e: ParamNotFound        => countStatus(400); response.BadRequest(Json.obj("message" -> e.getMessage))
+        case e: RespondWithException => countStatus(e); e.response
+        case e: BadRequest           => countStatus(e); response.BadRequest()
+        case e: Unauthorized         => countStatus(e); response.Unauthorized()
+        case e: PaymentRequired      => countStatus(e); response.PaymentRequired()
+        case e: Forbidden            => countStatus(e); response.Forbidden()
+        case e: NotFound             => countStatus(e); response.NotFound()
+        case e: MethodNotAllowed     => countStatus(e); response.MethodNotAllowed()
+        case e: NotAcceptable        => countStatus(e); response.NotAcceptable()
+        case e: RequestTimeOut       => countStatus(e); response.RequestTimeOut()
+        case e: Conflict             => countStatus(e); response.Conflict()
+        case e: PreconditionFailed   => countStatus(e); response.PreconditionFailed()
+        case e: TooManyRequests      => countStatus(e); response.TooManyRequests()
+        case e: NotImplemented       => countStatus(e); response.NotImplemented()
+        case e: InternalServerError  => countStatus(e); response.InternalServerError()
+        case e: BadGateway           => countStatus(e); response.BadGateway()
+        case e: ServiceUnavailable   => countStatus(e); response.ServiceUnavailable()
+        case t: Throwable            => countStatus(500); logger.error("", t); response.InternalServerError()
       }
+    }
+
+    def countStatus(status: Int): Unit = {
+      stats.counter(s"$status").incr()
+    }
+    def countStatus(t: RespondWithException): Unit = {
+      countStatus(t.response.getStatusCode())
+    }
+    def countStatus(t: HttpException): Unit = {
+      countStatus(t.status)
     }
   }
 
