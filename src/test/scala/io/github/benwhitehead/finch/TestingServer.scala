@@ -5,7 +5,7 @@ import com.twitter.finagle.httpx.Method
 import com.twitter.finagle.httpx.path.{->, /, Root}
 import com.twitter.util.Future
 import io.finch._
-import io.finch.request.RequiredStringBody
+import io.finch.request.RequiredBody
 import io.finch.response._
 import io.github.benwhitehead.finch.request.DelegateService
 
@@ -27,15 +27,16 @@ object Echo extends HttpEndpoint {
 object JsonBlob extends HttpEndpoint {
   lazy val logger = org.slf4j.LoggerFactory.getLogger(getClass.getName)
 
-  lazy val service = DelegateService[HttpRequest, HttpResponse] {
-    val data = (1 to 100).map { case i => s"$i" -> i }.toMap
-    val s = JacksonWrapper.serialize(data)
-    Ok.withHeaders("Content-Type" ->"application/json")(s)
+  import io.finch.jackson._
+  import io.github.benwhitehead.finch.JacksonWrapper.mapper
+
+  lazy val service = DelegateService[HttpRequest, Map[String, Int]] {
+    (1 to 100).map { case i => s"$i" -> i }.toMap
   }
 
   lazy val handlePost = new Service[HttpRequest, HttpResponse] {
     lazy val reader = for {
-      body <- RequiredStringBody
+      body <- RequiredBody[Map[String, Int]]
     } yield body
 
     def apply(request: HttpRequest): Future[HttpResponse] = {
@@ -46,7 +47,7 @@ object JsonBlob extends HttpEndpoint {
     }
   }
   def route = {
-    case Method.Get  -> Root / "json" => service
+    case Method.Get  -> Root / "json" => service ! TurnIntoHttp[Map[String, Int]]
     case Method.Post -> Root / "json" => handlePost
   }
 }

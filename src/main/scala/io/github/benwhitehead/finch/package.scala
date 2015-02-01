@@ -16,7 +16,7 @@
 package io.github.benwhitehead
 
 import com.twitter.finagle.Service
-import com.twitter.finagle.httpx.{Response, Status}
+import com.twitter.finagle.httpx.Response
 import com.twitter.util.Future
 import io.finch._
 import io.finch.response.BadRequest
@@ -55,15 +55,6 @@ package object finch {
         case Some(value) => value.toFuture
         case None => throw new NotFound
       }
-    }
-  }
-
-  object JacksonResponseSerializer extends Service[Any, HttpResponse] {
-    override def apply(request: Any): Future[HttpResponse] = {
-      val rep = com.twitter.finagle.httpx.Response(Status.Ok)
-      rep.setContentTypeJson()
-      rep.setContentString(JacksonWrapper.serialize(request))
-      rep.toFuture
     }
   }
 
