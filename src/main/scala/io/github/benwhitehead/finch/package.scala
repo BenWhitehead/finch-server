@@ -16,11 +16,10 @@
 package io.github.benwhitehead
 
 import com.twitter.finagle.Service
-import com.twitter.finagle.http.{Response, Status}
+import com.twitter.finagle.httpx.{Response, Status}
 import com.twitter.util.Future
 import io.finch._
-import io.finch.response.{BadRequest, Respond}
-import org.jboss.netty.handler.codec.http.HttpResponseStatus
+import io.finch.response.BadRequest
 
 package object finch {
 
@@ -48,10 +47,6 @@ package object finch {
     BadRequest.withHeaders("Accept" -> "application/json; charset=utf-8")()
   )
 
-  object Accepted extends Respond(Status.Accepted)
-  object BadGateway extends Respond(Status.BadGateway)
-  object ServiceUnavailable extends Respond(Status.ServiceUnavailable)
-
   // this is a class rather than an object so that it can be type
   // parametrized
   case class OptionResponse[T]() extends Service[Option[T], T] {
@@ -65,7 +60,7 @@ package object finch {
 
   object JacksonResponseSerializer extends Service[Any, HttpResponse] {
     override def apply(request: Any): Future[HttpResponse] = {
-      val rep = Response(HttpResponseStatus.OK)
+      val rep = com.twitter.finagle.httpx.Response(Status.Ok)
       rep.setContentTypeJson()
       rep.setContentString(JacksonWrapper.serialize(request))
       rep.toFuture

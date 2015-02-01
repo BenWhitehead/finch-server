@@ -19,6 +19,7 @@ package io.github.benwhitehead.finch
 import com.fasterxml.jackson.core.`type`.TypeReference
 import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
+import io.finch.json.{DecodeJson, EncodeJson}
 import java.io.{InputStream, Reader, StringWriter}
 import java.lang.reflect.{ParameterizedType, Type}
 
@@ -57,4 +58,12 @@ object JacksonWrapper {
       def getOwnerType = null
     }
   }
+}
+
+class JacksonJsonEncoder[-A] extends EncodeJson[A] {
+  override def apply(json: A): String = JacksonWrapper.serialize(json)
+}
+
+class JacksonJsonDecoder[+A] extends DecodeJson[A] {
+  override def apply(json: String): Option[A] = JacksonWrapper.deserialize(json)
 }

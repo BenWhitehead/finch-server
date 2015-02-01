@@ -15,18 +15,17 @@
 
 package io.github.benwhitehead.finch
 
-import java.io.{FileReader, BufferedReader, File}
-
 import com.twitter.conversions.time.longToTimeableNumber
 import com.twitter.finagle.Service
 import com.twitter.finagle.builder.ClientBuilder
-import com.twitter.finagle.http.path.{->, /, Root}
-import com.twitter.finagle.http.{Http, Method, RequestBuilder}
+import com.twitter.finagle.httpx.path.{->, /, Root}
+import com.twitter.finagle.httpx.{Http, Method, RequestBuilder}
 import com.twitter.util._
 import io.finch._
 import io.finch.response._
-import org.jboss.netty.util.CharsetUtil
 import org.scalatest.{BeforeAndAfterEach, FreeSpec}
+
+import java.io.{BufferedReader, File, FileReader}
 
 /**
  * @author Ben Whitehead
@@ -51,7 +50,8 @@ class FinchServerTest extends FreeSpec with BeforeAndAfterEach {
   class TestServer extends SimpleFinchServer {
     lazy val pidFile = File.createTempFile("testServer", ".pid", new File(System.getProperty("java.io.tmpdir")))
     pidFile.deleteOnExit()
-    override lazy val config = Config(port = 0, pidPath = pidFile.getAbsolutePath, adminPort = 0)
+    override lazy val defaultHttpPort = 0
+    override lazy val config = Config(port = 0, pidPath = pidFile.getAbsolutePath)
     override lazy val serverName = "test-server"
     lazy val echos = new Echo
     def endpoint = {
@@ -73,7 +73,10 @@ class FinchServerTest extends FreeSpec with BeforeAndAfterEach {
     def get(uri: String): Future[String] = {
       client(RequestBuilder().url(s"http://$hostPort/$uri".replaceAll("(?<!:)//", "/")).buildGet) flatMap {
         case response =>
-          Future.value(response.getContent.toString(CharsetUtil.UTF_8))
+          val buf = response.content
+          val out = Array.ofDim[Byte](buf.length)
+          buf.write(out, 0)
+          Future.value(new String(out, "UTF-8"))
       }
     }
   }

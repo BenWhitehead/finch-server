@@ -15,24 +15,25 @@
 
 package io.github.benwhitehead.finch
 
-import java.io.{FileNotFoundException, File, FileOutputStream}
-import java.lang.management.ManagementFactory
-import java.net.{InetSocketAddress, SocketAddress}
-
 import com.twitter.app.App
 import com.twitter.conversions.storage.intToStorageUnitableWholeNumber
 import com.twitter.finagle._
-import com.twitter.finagle.builder.{Server, ServerBuilder}
-import com.twitter.finagle.http.service.NotFoundService
-import com.twitter.finagle.http.{Http, HttpMuxer, RichHttp}
+import com.twitter.finagle.httpx.service.NotFoundService
+import com.twitter.finagle.netty3.Netty3ListenerTLSConfig
+import com.twitter.finagle.ssl.Ssl
 import com.twitter.server.Lifecycle.Warmup
-import com.twitter.server.{Admin, Lifecycle, Stats}
+import com.twitter.server.{Admin, AdminHttpServer, Lifecycle, Stats}
 import com.twitter.util.Await
 import io.finch._
 import io.github.benwhitehead.finch.filters._
 
+import java.io.{File, FileNotFoundException, FileOutputStream}
+import java.lang.management.ManagementFactory
+import java.net.{InetSocketAddress, SocketAddress}
+
 trait FinchServer[Request <: HttpRequest] extends App
   with SLF4JLogging
+  with AdminHttpServer
   with Admin
   with Lifecycle
   with Warmup
@@ -44,24 +45,22 @@ trait FinchServer[Request <: HttpRequest] extends App
   case class Config(
     port: Int = 7070,
     pidPath: String = "",
-    adminPort: Int = 9990,
     httpsPort: Int = 7443,
     certificatePath: String = "",
     keyPath: String = "",
-    maxRequestSize: Int = 5,
+    maxRequestSize: Int = 5/*,
     decompressionEnabled: Boolean = false,
-    compressionLevel: Int = 6
+    compressionLevel: Int = 6*/
   )
   object DefaultConfig extends Config(
     httpPort(),
     pidFile(),
-    adminHttpPort(),
     httpsPort(),
     certificatePath(),
     keyPath(),
-    maxRequestSize(),
+    maxRequestSize()/*,
     decompressionEnabled(),
-    compressionLevel()
+    compressionLevel()*/
   )
 
   def serverName: String = "finch"
@@ -69,9 +68,8 @@ trait FinchServer[Request <: HttpRequest] extends App
   def filter: Filter[HttpRequest, HttpResponse, Request, HttpResponse]
   lazy val config: Config = DefaultConfig
 
-  private var server: Option[Server] = None
-  private var tlsServer: Option[Server] = None
-  private var adminServer: Option[ListeningServer] = None
+  @volatile private var server: Option[ListeningServer] = None
+  @volatile private var tlsServer: Option[ListeningServer] = None
 
   def writePidFile() {
     val pidFile = new File(config.pidPath)
@@ -91,58 +89,48 @@ trait FinchServer[Request <: HttpRequest] extends App
     }
     logger.info("process " + pid + " started")
 
-    adminServer = Some(com.twitter.finagle.Http.serve(new InetSocketAddress(config.adminPort), HttpMuxer))
-    adminServer map { closeOnExit(_) }
-    logger.info(s"admin http server started on: ${(adminServer map {_.boundAddress}).get}")
-
+    logger.info(s"admin http server started on: ${adminHttpServer.boundAddress}")
     server = Some(startServer())
-    logger.info(s"http server started on: ${(server map {_.localAddress}).get}")
+    logger.info(s"http server started on: ${(server map {_.boundAddress}).get}")
     server map { closeOnExit(_) }
 
     if (!config.certificatePath.isEmpty && !config.keyPath.isEmpty) {
       verifyFileReadable(config.certificatePath, "SSL Certificate")
       verifyFileReadable(config.keyPath, "SSL Key")
       tlsServer = Some(startTlsServer())
-      logger.info(s"https server started on: ${(tlsServer map {_.localAddress}).get}")
+      logger.info(s"https server started on: ${(tlsServer map {_.boundAddress}).get}")
     }
 
     tlsServer map { closeOnExit(_) }
-    adminServer map { Await.ready(_) }
-  }
 
-  def serverPort: Int = (server map { case s => getPort(s.localAddress) }).get
-  def tlsServerPort: Int = (tlsServer map { case s => getPort(s.localAddress) }).get
-  def adminPort: Int = (adminServer map { case s => getPort(s.boundAddress) }).get
-
-  def startServer(): Server = {
-    val name = s"srv/http/$serverName"
-    ServerBuilder()
-      .codec(getCodec)
-      .bindTo(new InetSocketAddress(config.port))
-      .name(name)
-      .build(getService(name))
-  }
-
-  def startTlsServer(): Server = {
-    val name = s"srv/https/$serverName"
-    ServerBuilder()
-      .codec(getCodec)
-      .bindTo(new InetSocketAddress(config.httpsPort))
-      .tls(config.certificatePath, config.keyPath)
-      .name(name)
-      .build(getService(name))
-  }
-
-  def getCodec: RichHttp[HttpRequest] = {
-    val http = Http()
-      .maxRequestSize(config.maxRequestSize.megabytes)
-    if (config.decompressionEnabled) {
-      http
-        .decompressionEnabled(config.decompressionEnabled)
-        .compressionLevel(config.compressionLevel)
+    (server, tlsServer) match {
+      case (Some(s), Some(ts)) => Await.all(s, ts)
+      case (Some(s), None)     => Await.all(s)
+      case (None, Some(ts))    => Await.all(ts)
+      case (None, None)        => throw new IllegalStateException("No server to wait for startup")
     }
+  }
 
-    RichHttp[HttpRequest](http)
+  def serverPort: Int = (server map { case s => getPort(s.boundAddress) }).get
+  def tlsServerPort: Int = (tlsServer map { case s => getPort(s.boundAddress) }).get
+
+  def startServer(): ListeningServer = {
+    val name = s"http/$serverName"
+    Httpx.server
+      .configured(param.Label(name))
+      .configured(Httpx.param.MaxRequestSize(config.maxRequestSize.megabytes))
+      // TODO: Figure out how to add back compression support
+      .serve(new InetSocketAddress(config.port), getService(s"srv/$name"))
+  }
+
+  def startTlsServer(): ListeningServer = {
+    val name = s"https/$serverName"
+    Httpx.server
+      .configured(param.Label(name))
+      .configured(Httpx.param.MaxRequestSize(config.maxRequestSize.megabytes))
+      .withTls(Netty3ListenerTLSConfig(() => Ssl.server(config.certificatePath, config.keyPath, null, null, null)))
+      // TODO: Figure out how to add back compression support
+      .serve(new InetSocketAddress(config.httpsPort), getService(s"srv/$name"))
   }
 
   def getService(serviceName: String) = {

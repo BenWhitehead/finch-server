@@ -15,25 +15,28 @@
 
 package io.github.benwhitehead.finch
 
-import java.text.SimpleDateFormat
-import java.util.Date
-
 import com.twitter.app.{App => TApp}
+import com.twitter.finagle.httpx.Version
+import com.twitter.finagle.httpx.Version.{Http10, Http11}
 import com.twitter.finagle.{Service, SimpleFilter}
 import com.twitter.server.Stats
 import com.twitter.util.Future
-import io.finch.json.JsonObject
+import io.finch.json.Json
 import io.finch.request.{ParamNotFound, ValidationFailed}
 import io.finch.{response, _}
+
+import java.text.SimpleDateFormat
+import java.util.Date
 
 package object filters {
 
   object HandleExceptions extends SimpleFilter[HttpRequest, HttpResponse] {
     lazy val logger = org.slf4j.LoggerFactory.getLogger(getClass.getName)
     def apply(request: HttpRequest, service: Service[HttpRequest, HttpResponse]) = {
+      import io.finch.json.finch._
       service(request) handle {
-        case e: ValidationFailed     => response.BadRequest(JsonObject("message" -> e.getMessage))
-        case e: ParamNotFound        => response.BadRequest(JsonObject("message" -> e.getMessage))
+        case e: ValidationFailed     => response.BadRequest(Json.obj("message" -> e.getMessage))
+        case e: ParamNotFound        => response.BadRequest(Json.obj("message" -> e.getMessage))
         case e: RespondWithException => e.response
         case e: BadRequest           => response.BadRequest()
         case e: Unauthorized         => response.Unauthorized()
@@ -48,8 +51,8 @@ package object filters {
         case e: TooManyRequests      => response.TooManyRequests()
         case e: NotImplemented       => response.NotImplemented()
         case e: InternalServerError  => response.InternalServerError()
-        case e: BadGateway           => BadGateway()
-        case e: ServiceUnavailable   => ServiceUnavailable()
+        case e: BadGateway           => response.BadGateway()
+        case e: ServiceUnavailable   => response.ServiceUnavailable()
         case t: Throwable            => logger.error("", t); response.InternalServerError()
       }
     }
@@ -73,21 +76,21 @@ package object filters {
     def apply(request: HttpRequest, service: Service[HttpRequest, HttpResponse]) = {
       if (common.isTraceEnabled || combined.isTraceEnabled) {
         service(request) flatMap { case resp =>
-          val reqHeaders = request.headers()
+          val reqHeaders = request.headerMap
           val remoteHost = request.remoteHost
           val identd = "-"
           val user = "-"
           val requestEndTime = new SimpleDateFormat("dd/MM/yyyy:hh:mm:ss Z").format(new Date())
-          val reqResource = s"${request.method} ${request.uri} ${request.getProtocolVersion()}"
+          val reqResource = s"${request.method.toString.toUpperCase} ${request.uri} ${versionString(request.version)}"
           val statusCode = resp.statusCode
-          val responseBytes = asOpt(resp.headers().get("Content-Length")).getOrElse("-")
+          val responseBytes = resp.headerMap.getOrElse("Content-Length", "-")
 
           if (common.isTraceEnabled) {
             common.trace(f"""$remoteHost%s $identd%s $user%s [$requestEndTime%s] "$reqResource%s" $statusCode%d $responseBytes%s""")
           }
           if (combined.isTraceEnabled) {
-            val referer = asOpt(reqHeaders.get("Referer")).getOrElse("-")
-            val userAgent = asOpt(reqHeaders.get("User-Agent")).getOrElse("-")
+            val referer = reqHeaders.getOrElse("Referer", "-")
+            val userAgent = reqHeaders.getOrElse("User-Agent", "-")
             combined.trace(f"""$remoteHost%s $identd%s $user%s [$requestEndTime%s] "$reqResource%s" $statusCode%d $responseBytes%s "$referer%s" "$userAgent%s"""")
           }
           resp.toFuture
@@ -97,7 +100,10 @@ package object filters {
       }
     }
 
-    def asOpt(value: String) = if (value == null) None else Some(value)
+    def versionString(v: Version) = v match {
+      case Http11 => "HTTP/1.1"
+      case Http10 => "HTTP/1.0"
+    }
   }
 
 
