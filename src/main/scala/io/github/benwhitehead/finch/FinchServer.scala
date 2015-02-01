@@ -136,12 +136,12 @@ trait FinchServer[Request <: HttpRequest] extends App
   def getService(serviceName: String): Service[HttpRequest, HttpResponse] = {
     new StatsFilter(serviceName) andThen
       AccessLog andThen
-      errorHandler andThen
+      errorHandler(serviceName) andThen
       filter andThen
       (endpoint orElse NotFound)
   }
 
-  def errorHandler: Filter[HttpRequest, HttpResponse, HttpRequest, HttpResponse] = HandleExceptions
+  def errorHandler(serviceName: String): Filter[HttpRequest, HttpResponse, HttpRequest, HttpResponse] = new HandleExceptions(serviceName)
 
   onExit {
     removePidFile()
