@@ -2,7 +2,7 @@ organization := "io.github.benwhitehead.finch"
 
 name := "finch-server"
 
-version := "0.6.0"
+version := "0.7.0-SNAPSHOT"
 
 crossScalaVersions := Seq("2.10.3", "2.11.4")
 
