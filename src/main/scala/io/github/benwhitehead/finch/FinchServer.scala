@@ -133,12 +133,12 @@ trait FinchServer[Request <: HttpRequest] extends App
       .serve(new InetSocketAddress(config.httpsPort), getService(s"srv/$name"))
   }
 
-  def getService(serviceName: String) = {
+  def getService(serviceName: String): Service[HttpRequest, HttpResponse] = {
     new StatsFilter(serviceName) andThen
       AccessLog andThen
       errorHandler andThen
       filter andThen
-      (endpoint orElse NotFound).toService
+      (endpoint orElse NotFound)
   }
 
   def errorHandler: Filter[HttpRequest, HttpResponse, HttpRequest, HttpResponse] = HandleExceptions

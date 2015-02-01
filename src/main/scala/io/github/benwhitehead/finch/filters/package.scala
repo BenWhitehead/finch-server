@@ -21,7 +21,6 @@ import com.twitter.finagle.httpx.Version.{Http10, Http11}
 import com.twitter.finagle.{Service, SimpleFilter}
 import com.twitter.server.Stats
 import com.twitter.util.Future
-import io.finch.json.Json
 import io.finch.request.{ParamNotFound, ValidationFailed}
 import io.finch.{response, _}
 
@@ -33,7 +32,7 @@ package object filters {
   object HandleExceptions extends SimpleFilter[HttpRequest, HttpResponse] {
     lazy val logger = org.slf4j.LoggerFactory.getLogger(getClass.getName)
     def apply(request: HttpRequest, service: Service[HttpRequest, HttpResponse]) = {
-      import io.finch.json.finch._
+      import io.finch.json._
       service(request) handle {
         case e: ValidationFailed     => response.BadRequest(Json.obj("message" -> e.getMessage))
         case e: ParamNotFound        => response.BadRequest(Json.obj("message" -> e.getMessage))

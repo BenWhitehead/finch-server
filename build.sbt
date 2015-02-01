@@ -15,8 +15,9 @@ javacOptions in doc := Seq("-source", "1.7")
 resolvers += "Twitter" at "http://maven.twttr.com/"
 
 libraryDependencies ++= Seq(
-  "com.github.finagle"  %% "finch-core"         % "0.3.0",
-  "com.github.finagle"  %% "finch-json"         % "0.3.0",
+  "com.github.finagle"  %% "finch-core"         % "0.4.0",
+  "com.github.finagle"  %% "finch-json"         % "0.4.0",
+  "com.github.finagle"  %% "finch-jackson"      % "0.4.0"   % "test",
   "com.twitter"         %% "finagle-stats"      % "6.24.0",
   "com.twitter"         %% "finagle-httpx"      % "6.24.0",
   "com.twitter"         %% "twitter-server"     % "1.9.0",
