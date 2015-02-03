@@ -18,7 +18,6 @@ package io.github.benwhitehead.finch
 import com.twitter.app.App
 import com.twitter.conversions.storage.intToStorageUnitableWholeNumber
 import com.twitter.finagle._
-import com.twitter.finagle.httpx.service.NotFoundService
 import com.twitter.finagle.netty3.Netty3ListenerTLSConfig
 import com.twitter.finagle.ssl.Ssl
 import com.twitter.server.Lifecycle.Warmup
@@ -26,12 +25,13 @@ import com.twitter.server.{Admin, AdminHttpServer, Lifecycle, Stats}
 import com.twitter.util.Await
 import io.finch._
 import io.github.benwhitehead.finch.filters._
+import io.github.benwhitehead.finch.request.DelegateService
 
 import java.io.{File, FileNotFoundException, FileOutputStream}
 import java.lang.management.ManagementFactory
 import java.net.{InetSocketAddress, SocketAddress}
 
-trait FinchServer[Request <: HttpRequest] extends App
+trait FinchServer[Request] extends App
   with SLF4JLogging
   with AdminHttpServer
   with Admin
@@ -134,10 +134,10 @@ trait FinchServer[Request <: HttpRequest] extends App
   }
 
   def getService(serviceName: String): Service[HttpRequest, HttpResponse] = {
-    new StatsFilter(serviceName) andThen
-      AccessLog andThen
-      errorHandler(serviceName) andThen
-      filter andThen
+    new StatsFilter(serviceName) !
+      AccessLog !
+      errorHandler(serviceName) !
+      filter !
       (endpoint orElse NotFound(serviceName))
   }
 
@@ -148,7 +148,9 @@ trait FinchServer[Request <: HttpRequest] extends App
   }
 
   def NotFound(serviceName: String) = new Endpoint[Request, HttpResponse] {
-    lazy val underlying = new NotFoundService[Request]
+    lazy val underlying = DelegateService {
+      io.finch.response.NotFound()
+    }
     val stats404 = {
       val stats = {
         if (serviceName.nonEmpty) statsReceiver.scope(s"$serviceName/error")
