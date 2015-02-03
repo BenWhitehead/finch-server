@@ -23,7 +23,7 @@ import io.finch.response.BadRequest
 
 package object finch {
 
-  trait TypedEndpoint[Request <: HttpRequest] extends Endpoint[Request, HttpResponse]
+  trait TypedEndpoint[Request] extends Endpoint[Request, HttpResponse]
   trait HttpEndpoint extends TypedEndpoint[HttpRequest]
 
   class BadRequest            extends Exception // 400
