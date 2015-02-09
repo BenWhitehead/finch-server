@@ -46,9 +46,14 @@ object JsonBlob extends HttpEndpoint {
       }
     }
   }
+
+  lazy val exceptionService = DelegateService {
+    throw new RuntimeException("unhandled exception")
+  }
   def route = {
     case Method.Get  -> Root / "json" => service ! TurnIntoHttp[Map[String, Int]]
     case Method.Post -> Root / "json" => handlePost
+    case Method.Get  -> Root / "json" / "exception" => exceptionService
   }
 }
 

@@ -35,6 +35,10 @@ package object filters {
       if (baseScope.nonEmpty) statsReceiver.scope(s"$baseScope/error")
       else statsReceiver.scope("error")
     }
+    val exceptionScope = {
+      if (baseScope.nonEmpty) statsReceiver.scope(s"$baseScope/exception")
+      else statsReceiver.scope("exception")
+    }
     def apply(request: HttpRequest, service: Service[HttpRequest, HttpResponse]) = {
       import io.finch.json._
       service(request) handle {
@@ -56,7 +60,11 @@ package object filters {
         case e: InternalServerError  => countStatus(e); response.InternalServerError()
         case e: BadGateway           => countStatus(e); response.BadGateway()
         case e: ServiceUnavailable   => countStatus(e); response.ServiceUnavailable()
-        case t: Throwable            => countStatus(500); logger.error("", t); response.InternalServerError()
+        case t: Throwable            =>
+          countStatus(500)
+          exceptionScope.counter(t.getClass.getName).incr()
+          logger.error("", t)
+          response.InternalServerError()
       }
     }
 
