@@ -134,8 +134,7 @@ trait FinchServer[Request] extends App
   }
 
   def getService(serviceName: String): Service[HttpRequest, HttpResponse] = {
-    new StatsFilter(serviceName) !
-      AccessLog !
+    AccessLog(new StatsFilter(serviceName), accessLog()) !
       errorHandler(serviceName) !
       filter !
       (endpoint orElse NotFound(serviceName))

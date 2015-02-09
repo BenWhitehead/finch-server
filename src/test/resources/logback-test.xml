@@ -20,7 +20,6 @@
   </appender>
 
   <logger name="access-log" level="trace"/>
-  <logger name="access-log-combined" level="OFF"/>
 
   <root level="debug">
     <appender-ref ref="STDOUT"/>
