@@ -100,6 +100,6 @@ Artifacts for finch-server are currently hosed in a google storage bucket, so yo
 resolvers += "finch-server" at "http://storage.googleapis.com/benwhitehead_me/maven/public"
 
 libraryDependencies ++= Seq(
-  "io.github.benwhitehead.finch" %% "finch-server" % "0.7.1"
+  "io.github.benwhitehead.finch" %% "finch-server" % "0.7.2"
 )
 ```
