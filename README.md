@@ -1,7 +1,18 @@
 finch-server
 ============
 
-Some base classes and configuration used for making a server using finch
+Finch Server is a library that merges together the great libraries [finch](https://github.com/finagle/finch), and [twitter-server](https://github.com/twitter/twitter-server).
+
+Twitter has done a great job of providing great features in twitter-server, but there are some subtleties in utilizing these features, this project aims to made it as easy as possible to use finch and twitter-server together.
+
+# Features
+
+There are flags setup to configure all parameters for the servers to allow for external configuration
+there is a default exception handler that will create responses for certain exception types
+it automatically sets up per-route stats for you so that you can get histogram data for all routes that are accessed in your server
+there is a filter that gets woven into the setup to provide access logging
+the twitter admin http server is automatically started for you
+the access logging is controlled by a separate appender that can be configured independent from the application logging
 
 # Config Flags
 
