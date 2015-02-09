@@ -49,9 +49,6 @@
   <logger name="access-log" level="trace">
     <appender-ref ref="access-log"/>
   </logger>
-  <logger name="access-log-combined" level="OFF">
-    <appender-ref ref="access-log"/>
-  </logger>
 
   <root level="debug">
     <appender-ref ref="STDOUT"/>

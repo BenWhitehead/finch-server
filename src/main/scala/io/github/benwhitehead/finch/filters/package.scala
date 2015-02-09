@@ -18,7 +18,7 @@ package io.github.benwhitehead.finch
 import com.twitter.app.{App => TApp}
 import com.twitter.finagle.httpx.Version
 import com.twitter.finagle.httpx.Version.{Http10, Http11}
-import com.twitter.finagle.{Service, SimpleFilter}
+import com.twitter.finagle.{Filter, Service, SimpleFilter}
 import com.twitter.server.Stats
 import com.twitter.util.Future
 import io.finch.request.{ParamNotFound, ValidationFailed}
@@ -86,11 +86,10 @@ package object filters {
     }
   }
 
-  object AccessLog extends SimpleFilter[HttpRequest, HttpResponse] {
-    lazy val common = org.slf4j.LoggerFactory.getLogger("access-log")
-    lazy val combined = org.slf4j.LoggerFactory.getLogger("access-log-combined")
+  class AccessLog(combined: Boolean) extends SimpleFilter[HttpRequest, HttpResponse] {
+    lazy val accessLog = org.slf4j.LoggerFactory.getLogger("access-log")
     def apply(request: HttpRequest, service: Service[HttpRequest, HttpResponse]) = {
-      if (common.isTraceEnabled || combined.isTraceEnabled) {
+      if (accessLog.isTraceEnabled) {
         service(request) flatMap { case resp =>
           val reqHeaders = request.headerMap
           val remoteHost = request.remoteHost
@@ -101,13 +100,12 @@ package object filters {
           val statusCode = resp.statusCode
           val responseBytes = resp.headerMap.getOrElse("Content-Length", "-")
 
-          if (common.isTraceEnabled) {
-            common.trace(f"""$remoteHost%s $identd%s $user%s [$requestEndTime%s] "$reqResource%s" $statusCode%d $responseBytes%s""")
-          }
-          if (combined.isTraceEnabled) {
+          if (!combined) {
+            accessLog.trace(f"""$remoteHost%s $identd%s $user%s [$requestEndTime%s] "$reqResource%s" $statusCode%d $responseBytes%s""")
+          } else {
             val referer = reqHeaders.getOrElse("Referer", "-")
             val userAgent = reqHeaders.getOrElse("User-Agent", "-")
-            combined.trace(f"""$remoteHost%s $identd%s $user%s [$requestEndTime%s] "$reqResource%s" $statusCode%d $responseBytes%s "$referer%s" "$userAgent%s"""")
+            accessLog.trace(f"""$remoteHost%s $identd%s $user%s [$requestEndTime%s] "$reqResource%s" $statusCode%d $responseBytes%s "$referer%s" "$userAgent%s"""")
           }
           resp.toFuture
         }
@@ -119,6 +117,16 @@ package object filters {
     def versionString(v: Version) = v match {
       case Http11 => "HTTP/1.1"
       case Http10 => "HTTP/1.0"
+    }
+  }
+  object AccessLog {
+    type httpFilter = Filter[HttpRequest, HttpResponse, HttpRequest, HttpResponse]
+    def apply(preFilter: httpFilter, logType: String): httpFilter = {
+      logType match {
+        case "access-log" => preFilter ! new AccessLog(false)
+        case "access-log-combined" => preFilter ! new AccessLog(true)
+        case _ => preFilter
+      }
     }
   }
 
