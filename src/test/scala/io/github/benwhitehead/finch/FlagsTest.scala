@@ -19,7 +19,7 @@ import java.io.{ByteArrayOutputStream, PrintStream}
 import java.net.InetSocketAddress
 import java.security.Permission
 
-import io.finch.Endpoint
+import io.finch._
 import org.scalatest.{BeforeAndAfterEach, FreeSpec}
 
 /**
@@ -27,15 +27,17 @@ import org.scalatest.{BeforeAndAfterEach, FreeSpec}
  */
 class FlagsTest extends FreeSpec with BeforeAndAfterEach {
 
+  val ping: Endpoint[String] = get("ping") { Ok("pong") }
+
   var origSm: SecurityManager = null
 
-  var server: SimpleFinchServer = null
+  var server: FinchServer = null
   override protected def beforeEach() = {
     origSm = System.getSecurityManager
     System.setSecurityManager(new SystemExitTrap)
 
-    server = new SimpleFinchServer {
-      def endpoint = Endpoint.NotFound
+    server = new FinchServer {
+      def service = ping.toService
       override def main() = {}
     }
   }

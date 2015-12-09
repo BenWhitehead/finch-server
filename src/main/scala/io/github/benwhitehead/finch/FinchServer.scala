@@ -15,23 +15,23 @@
 
 package io.github.benwhitehead.finch
 
-import com.twitter.app.App
-import com.twitter.conversions.storage.intToStorageUnitableWholeNumber
-import com.twitter.finagle._
-import com.twitter.finagle.netty3.Netty3ListenerTLSConfig
-import com.twitter.finagle.ssl.Ssl
-import com.twitter.server.Lifecycle.Warmup
-import com.twitter.server.{Admin, AdminHttpServer, Lifecycle, Stats}
-import com.twitter.util.Await
-import io.finch._
-import io.github.benwhitehead.finch.filters._
-import io.github.benwhitehead.finch.request.DelegateService
-
 import java.io.{File, FileNotFoundException, FileOutputStream}
 import java.lang.management.ManagementFactory
 import java.net.{InetSocketAddress, SocketAddress}
 
-trait FinchServer[Request] extends App
+import com.twitter.app.App
+import com.twitter.conversions.storage.intToStorageUnitableWholeNumber
+import com.twitter.finagle._
+import com.twitter.finagle.http.{Request, Response}
+import com.twitter.finagle.netty3.Netty3ListenerTLSConfig
+import com.twitter.finagle.param.Label
+import com.twitter.finagle.ssl.Ssl
+import com.twitter.server.Lifecycle.Warmup
+import com.twitter.server.{Admin, AdminHttpServer, Lifecycle, Stats}
+import com.twitter.util.{Await, CountDownLatch}
+import io.github.benwhitehead.finch.filters._
+
+trait FinchServer extends App
   with SLF4JLogging
   with AdminHttpServer
   with Admin
@@ -42,15 +42,15 @@ trait FinchServer[Request] extends App
 
   lazy val pid: String = ManagementFactory.getRuntimeMXBean.getName.split('@').head
 
+  implicit val stats = statsReceiver
+
   case class Config(
     port: Int = 7070,
     pidPath: String = "",
     httpsPort: Int = 7443,
     certificatePath: String = "",
     keyPath: String = "",
-    maxRequestSize: Int = 5/*,
-    decompressionEnabled: Boolean = false,
-    compressionLevel: Int = 6*/
+    maxRequestSize: Int = 5
   )
   object DefaultConfig extends Config(
     httpPort(),
@@ -58,18 +58,16 @@ trait FinchServer[Request] extends App
     httpsPort(),
     certificatePath(),
     keyPath(),
-    maxRequestSize()/*,
-    decompressionEnabled(),
-    compressionLevel()*/
+    maxRequestSize()
   )
 
   def serverName: String = "finch"
-  def endpoint: Endpoint[Request, HttpResponse]
-  def filter: Filter[HttpRequest, HttpResponse, Request, HttpResponse]
+  def service: Service[Request, Response]
   lazy val config: Config = DefaultConfig
 
   @volatile private var server: Option[ListeningServer] = None
   @volatile private var tlsServer: Option[ListeningServer] = None
+  private val cdl = new CountDownLatch(1)
 
   def writePidFile() {
     val pidFile = new File(config.pidPath)
@@ -92,7 +90,7 @@ trait FinchServer[Request] extends App
     logger.info(s"admin http server started on: ${adminHttpServer.boundAddress}")
     server = Some(startServer())
     logger.info(s"http server started on: ${(server map {_.boundAddress}).get}")
-    server map { closeOnExit(_) }
+    server foreach { closeOnExit(_) }
 
     if (!config.certificatePath.isEmpty && !config.keyPath.isEmpty) {
       verifyFileReadable(config.certificatePath, "SSL Certificate")
@@ -101,7 +99,8 @@ trait FinchServer[Request] extends App
       logger.info(s"https server started on: ${(tlsServer map {_.boundAddress}).get}")
     }
 
-    tlsServer map { closeOnExit(_) }
+    tlsServer foreach { closeOnExit(_) }
+    cdl.countDown()
 
     (server, tlsServer) match {
       case (Some(s), Some(ts)) => Await.all(s, ts)
@@ -111,53 +110,43 @@ trait FinchServer[Request] extends App
     }
   }
 
-  def serverPort: Int = (server map { case s => getPort(s.boundAddress) }).get
-  def tlsServerPort: Int = (tlsServer map { case s => getPort(s.boundAddress) }).get
+  def awaitServerStartup(): Unit = {
+    cdl.await()
+  }
+
+  def serverPort: Int = {
+    assert(cdl.isZero, "Server not yet started")
+    (server map { case s => getPort(s.boundAddress) }).get
+  }
+  def tlsServerPort: Int = {
+    assert(cdl.isZero, "TLS Server not yet started")
+    (tlsServer map { case s => getPort(s.boundAddress) }).get
+  }
 
   def startServer(): ListeningServer = {
     val name = s"http/$serverName"
-    Httpx.server
-      .configured(param.Label(name))
-      .configured(Httpx.param.MaxRequestSize(config.maxRequestSize.megabytes))
-      // TODO: Figure out how to add back compression support
+    Http.server
+      .configured(Label(name))
+      .configured(Http.param.MaxRequestSize(config.maxRequestSize.megabytes))
       .serve(new InetSocketAddress(config.port), getService(s"srv/$name"))
   }
 
   def startTlsServer(): ListeningServer = {
     val name = s"https/$serverName"
-    Httpx.server
-      .configured(param.Label(name))
-      .configured(Httpx.param.MaxRequestSize(config.maxRequestSize.megabytes))
+    Http.server
+      .configured(Label(name))
+      .configured(Http.param.MaxRequestSize(config.maxRequestSize.megabytes))
       .withTls(Netty3ListenerTLSConfig(() => Ssl.server(config.certificatePath, config.keyPath, null, null, null)))
-      // TODO: Figure out how to add back compression support
       .serve(new InetSocketAddress(config.httpsPort), getService(s"srv/$name"))
   }
 
-  def getService(serviceName: String): Service[HttpRequest, HttpResponse] = {
-    AccessLog(new StatsFilter(serviceName), accessLog()) !
-      errorHandler(serviceName) !
-      filter !
-      (endpoint orElse NotFound(serviceName))
+  def getService(serviceName: String): Service[Request, Response] = {
+    AccessLog(new StatsFilter(serviceName), accessLog()) andThen
+      service
   }
-
-  def errorHandler(serviceName: String): Filter[HttpRequest, HttpResponse, HttpRequest, HttpResponse] = new HandleExceptions(serviceName)
 
   onExit {
     removePidFile()
-  }
-
-  def NotFound(serviceName: String) = new Endpoint[Request, HttpResponse] {
-    lazy val underlying = DelegateService {
-      io.finch.response.NotFound()
-    }
-    val stats404 = {
-      val stats = {
-        if (serviceName.nonEmpty) statsReceiver.scope(s"$serviceName/error")
-        else statsReceiver.scope("error")
-      }
-      stats.counter("404")
-    }
-    def route = { case _ => stats404.incr(); underlying }
   }
 
   private def getPort(s: SocketAddress): Int = {
@@ -173,8 +162,4 @@ trait FinchServer[Request] extends App
       throw new FileNotFoundException(s"$description could not be read: ${config.keyPath}")
     }
   }
-}
-
-trait SimpleFinchServer extends FinchServer[HttpRequest] {
-  override def filter = Filter.identity
 }

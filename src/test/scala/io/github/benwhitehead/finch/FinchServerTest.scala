@@ -15,48 +15,36 @@
 
 package io.github.benwhitehead.finch
 
-import com.twitter.conversions.time.longToTimeableNumber
-import com.twitter.finagle.Service
+import java.io.{BufferedReader, File, FileReader}
+import java.util.concurrent.{Future => JFuture, Callable, Executors}
+
+import com.twitter.conversions.time.intToTimeableNumber
 import com.twitter.finagle.builder.ClientBuilder
-import com.twitter.finagle.httpx.path.{->, /, Root}
-import com.twitter.finagle.httpx.{Http, Method, RequestBuilder}
+import com.twitter.finagle.http.{Http, RequestBuilder}
 import com.twitter.util._
 import io.finch._
-import io.finch.response._
 import org.scalatest.{BeforeAndAfterEach, FreeSpec}
 
-import java.io.{BufferedReader, File, FileReader}
+import scala.collection.mutable.ArrayBuffer
 
 /**
  * @author Ben Whitehead
  */
 class FinchServerTest extends FreeSpec with BeforeAndAfterEach {
   lazy val logger = org.slf4j.LoggerFactory.getLogger(getClass.getName)
-
-  class Echo extends HttpEndpoint {
-    var echos: List[String] = Nil
-
-    def service(echo: String) = new Service[HttpRequest, HttpResponse] {
-      def apply(request: HttpRequest): Future[HttpResponse] = {
-        echos = echos :+ echo
-        Ok(echo).toFuture
-      }
-    }
-    def route = {
-      case Method.Get -> Root / "echo" / echo => service(echo)
-    }
+  val echos = ArrayBuffer[String]()
+  val echo: Endpoint[String] = get("echo" / string) { (phrase: String) =>
+    echos += phrase
+    Ok(phrase)
   }
-
-  class TestServer extends SimpleFinchServer {
+  class TestServer extends FinchServer {
+    import io.finch.EncodeResponse.encodeString
     lazy val pidFile = File.createTempFile("testServer", ".pid", new File(System.getProperty("java.io.tmpdir")))
     pidFile.deleteOnExit()
     override lazy val defaultHttpPort = 0
     override lazy val config = Config(port = 0, pidPath = pidFile.getAbsolutePath)
     override lazy val serverName = "test-server"
-    lazy val echos = new Echo
-    def endpoint = {
-       echos
-    }
+    def service = echo.toService
   }
 
   class TestClient(hostPort: String) {
@@ -67,6 +55,7 @@ class FinchServerTest extends FreeSpec with BeforeAndAfterEach {
         tcpConnectTimeout(1.second).
         requestTimeout(10.seconds).
         hostConnectionLimit(1).
+        retries(10).
         build
     def close() = client.close()
 
@@ -82,21 +71,22 @@ class FinchServerTest extends FreeSpec with BeforeAndAfterEach {
   }
 
   var server: TestServer = null
-  var serverThread: Thread = null
+  var serverThread: JFuture[Unit] = null
   var client: TestClient = null
 
   override protected def beforeEach() = {
     server = new TestServer
-    serverThread = new Thread {
-      override def run() = server.main(Array())
-    }
-    serverThread.start()  // TODO: Figure out a better way to start the server in another thread or background it
-    Thread.sleep(2500) // TODO: Figure out how to "Await" on the server
+    serverThread = Executors.newSingleThreadExecutor().submit(
+      new Callable[Unit]() {
+        override def call(): Unit = server.main(Array())
+      }
+    )
+    server.awaitServerStartup()
     client = new TestClient(s"localhost:${server.serverPort}")
   }
   override protected def afterEach()= {
     server.close()
-    serverThread.stop()
+    serverThread = null
     client.close()
   }
 
@@ -111,7 +101,7 @@ class FinchServerTest extends FreeSpec with BeforeAndAfterEach {
     "handle request" in {
       val resp = Await.result(client.get("/echo/test"))
       assert(resp === "test")
-      assert(server.echos.echos.contains("test"))
+      assert(echos.contains("test"))
     }
 
     "handle 5 requests" in {
@@ -121,11 +111,11 @@ class FinchServerTest extends FreeSpec with BeforeAndAfterEach {
       val resp = Await.result(fs)
       assert(resp.size === 5)
       assert(resp.toSet === Set("test1", "test2", "test3", "test4", "test5"))
-      assert(server.echos.echos.contains("test1"))
-      assert(server.echos.echos.contains("test2"))
-      assert(server.echos.echos.contains("test3"))
-      assert(server.echos.echos.contains("test4"))
-      assert(server.echos.echos.contains("test5"))
+      assert(echos.contains("test1"))
+      assert(echos.contains("test2"))
+      assert(echos.contains("test3"))
+      assert(echos.contains("test4"))
+      assert(echos.contains("test5"))
     }
   }
 }
