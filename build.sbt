@@ -2,7 +2,7 @@ organization := "io.github.benwhitehead.finch"
 
 name := "finch-server"
 
-version := "0.9.0"
+version := "0.9.1-SNAPSHOT"
 
 scalaVersion := "2.11.7"
 
