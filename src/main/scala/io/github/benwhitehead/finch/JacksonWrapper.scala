@@ -25,6 +25,7 @@ import java.lang.reflect.{ParameterizedType, Type}
 /**
  * Found at http://stackoverflow.com/a/14166997
  */
+@deprecated("will be removed in 0.10.0", "0.9.0")
 object JacksonWrapper {
   implicit val mapper = new ObjectMapper()
     .registerModule(DefaultScalaModule)
