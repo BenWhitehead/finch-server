@@ -16,8 +16,8 @@ The motivation behind using flags is that when running applications on Mesos or 
 ```
 -admin.port=:9990                                         : the TCP port for the admin http server
 -io.github.benwhitehead.finch.certificatePath=            : Path to PEM format SSL certificate file
--io.github.benwhitehead.finch.httpPort=7070               : the TCP port for the http server
--io.github.benwhitehead.finch.httpsPort=7443              : the TCP port for the https server
+-io.github.benwhitehead.finch.httpInterface=:7070         : The TCP Interface and port for the http server {[<hostname/ip>]:port}. (Set to empty value to disable)
+-io.github.benwhitehead.finch.httpsInterface=             : The TCP Interface and port for the https server {[<hostname/ip>]:port}. Requires -io.github.benwhitehead.finch.certificatePath and -io.github.benwhitehead.finch.keyPath to be set. (Set to empty value to disable)
 -io.github.benwhitehead.finch.keyPath=                    : Path to SSL Key file
 -io.github.benwhitehead.finch.maxRequestSize=5            : Max request size (in megabytes)
 -io.github.benwhitehead.finch.pidFile=                    : The file to write the pid of the process into
@@ -48,6 +48,7 @@ finch-server is very easy to use, all you need to create an echo server is the f
 ### Server Object
 ```scala
 import io.finch._
+import io.github.benwhitehead.finch.FinchServer
 
 object EchoServer extends FinchServer {
   override lazy val serverName = "echo"
