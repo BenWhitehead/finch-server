@@ -16,7 +16,8 @@
 package io.github.benwhitehead.finch
 
 import java.io.{BufferedReader, File, FileReader}
-import java.util.concurrent.{Future => JFuture, Callable, Executors}
+import java.net.InetSocketAddress
+import java.util.concurrent.{Callable, Executors, Future => JFuture}
 
 import com.twitter.conversions.time.intToTimeableNumber
 import com.twitter.finagle.builder.ClientBuilder
@@ -42,7 +43,7 @@ class FinchServerTest extends FreeSpec with BeforeAndAfterEach {
     lazy val pidFile = File.createTempFile("testServer", ".pid", new File(System.getProperty("java.io.tmpdir")))
     pidFile.deleteOnExit()
     override lazy val defaultHttpPort = 0
-    override lazy val config = Config(port = 0, pidPath = pidFile.getAbsolutePath)
+    override lazy val config = Config(httpInterface = Some(new InetSocketAddress("localhost", 0)), pidPath = pidFile.getAbsolutePath)
     override lazy val serverName = "test-server"
     def service = echo.toService
   }

@@ -45,17 +45,17 @@ trait FinchServer extends App
   implicit val stats = statsReceiver
 
   case class Config(
-    port: Int = 7070,
+    httpInterface: Option[InetSocketAddress] = Some(new InetSocketAddress("0.0.0.0", 7070)),
     pidPath: String = "",
-    httpsPort: Int = 7443,
+    httpsInterface: Option[InetSocketAddress] = None,
     certificatePath: String = "",
     keyPath: String = "",
     maxRequestSize: Int = 5
   )
   object DefaultConfig extends Config(
-    httpPort(),
+    httpInterface(),
     pidFile(),
-    httpsPort(),
+    httpsInterface(),
     certificatePath(),
     keyPath(),
     maxRequestSize()
@@ -88,18 +88,22 @@ trait FinchServer extends App
     logger.info("process " + pid + " started")
 
     logger.info(s"admin http server started on: ${adminHttpServer.boundAddress}")
-    server = Some(startServer())
-    logger.info(s"http server started on: ${(server map {_.boundAddress}).get}")
-    server foreach { closeOnExit(_) }
+    server = startServer()
+    server foreach { ls =>
+      logger.info(s"http server started on: ${ls.boundAddress}")
+      closeOnExit(ls)
+    }
 
     if (!config.certificatePath.isEmpty && !config.keyPath.isEmpty) {
       verifyFileReadable(config.certificatePath, "SSL Certificate")
       verifyFileReadable(config.keyPath, "SSL Key")
-      tlsServer = Some(startTlsServer())
-      logger.info(s"https server started on: ${(tlsServer map {_.boundAddress}).get}")
+      tlsServer = startTlsServer()
     }
 
-    tlsServer foreach { closeOnExit(_) }
+    tlsServer foreach { ls =>
+      logger.info(s"https server started on: ${ls.boundAddress}")
+      closeOnExit(_)
+    }
     cdl.countDown()
 
     (server, tlsServer) match {
@@ -123,21 +127,25 @@ trait FinchServer extends App
     (tlsServer map { case s => getPort(s.boundAddress) }).get
   }
 
-  def startServer(): ListeningServer = {
-    val name = s"http/$serverName"
-    Http.server
-      .configured(Label(name))
-      .configured(Http.param.MaxRequestSize(config.maxRequestSize.megabytes))
-      .serve(new InetSocketAddress(config.port), getService(s"srv/$name"))
+  def startServer(): Option[ListeningServer] = {
+    config.httpInterface.map { iface =>
+      val name = s"http/$serverName"
+      Http.server
+        .configured(Label(name))
+        .configured(Http.param.MaxRequestSize(config.maxRequestSize.megabytes))
+        .serve(iface, getService(s"srv/$name"))
+    }
   }
 
-  def startTlsServer(): ListeningServer = {
-    val name = s"https/$serverName"
-    Http.server
-      .configured(Label(name))
-      .configured(Http.param.MaxRequestSize(config.maxRequestSize.megabytes))
-      .withTls(Netty3ListenerTLSConfig(() => Ssl.server(config.certificatePath, config.keyPath, null, null, null)))
-      .serve(new InetSocketAddress(config.httpsPort), getService(s"srv/$name"))
+  def startTlsServer(): Option[ListeningServer] = {
+    config.httpsInterface.map { iface =>
+      val name = s"https/$serverName"
+      Http.server
+        .configured(Label(name))
+        .configured(Http.param.MaxRequestSize(config.maxRequestSize.megabytes))
+        .withTls(Netty3ListenerTLSConfig(() => Ssl.server(config.certificatePath, config.keyPath, null, null, null)))
+        .serve(iface, getService(s"srv/$name"))
+    }
   }
 
   def getService(serviceName: String): Service[Request, Response] = {
@@ -159,7 +167,7 @@ trait FinchServer extends App
   private def verifyFileReadable(path: String, description: String): Unit = {
     val file = new File(path)
     if (file.isFile && !file.canRead){
-      throw new FileNotFoundException(s"$description could not be read: ${config.keyPath}")
+      throw new FileNotFoundException(s"$description could not be read: $path")
     }
   }
 }

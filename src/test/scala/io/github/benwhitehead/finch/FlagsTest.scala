@@ -50,19 +50,33 @@ class FlagsTest extends FreeSpec with BeforeAndAfterEach {
     "defaults" in {
       server.main(Array())
       val config = server.config
-      assert(config.port === 7070)
+      assert(config.httpInterface === Some(new InetSocketAddress("0.0.0.0", 7070)))
       assert(server.adminPort() === new InetSocketAddress(9990))
       assert(config.pidPath === "")
     }
 
     "set" in {
       server.main(Array(
-        "-io.github.benwhitehead.finch.httpPort=1234",
+        "-io.github.benwhitehead.finch.httpInterface=:1234",
         "-admin.port=:4321",
         "-io.github.benwhitehead.finch.pidFile=/tmp/server.pid"
       ))
       val config = server.config
-      assert(config.port === 1234)
+      assert(config.httpInterface === Some(new InetSocketAddress("0.0.0.0", 1234)))
+      assert(server.adminPort() === new InetSocketAddress(4321))
+      assert(config.pidPath === "/tmp/server.pid")
+    }
+
+    "allow for https only server" in {
+      server.main(Array(
+        "-io.github.benwhitehead.finch.httpInterface=",
+        "-io.github.benwhitehead.finch.httpsInterface=:12345",
+        "-admin.port=:4321",
+        "-io.github.benwhitehead.finch.pidFile=/tmp/server.pid"
+      ))
+      val config = server.config
+      assert(config.httpInterface === None)
+      assert(config.httpsInterface === Some(new InetSocketAddress("0.0.0.0", 12345)))
       assert(server.adminPort() === new InetSocketAddress(4321))
       assert(config.pidPath === "/tmp/server.pid")
     }
@@ -79,7 +93,8 @@ class FlagsTest extends FreeSpec with BeforeAndAfterEach {
           assert(e.getMessage === "System.exit(1) trapped")
           val string = baos.toString
           assert(string.contains("-admin.port"))
-          assert(string.contains("-io.github.benwhitehead.finch.httpPort"))
+          assert(string.contains("-io.github.benwhitehead.finch.httpInterface=':7070'"))
+          assert(string.contains("-io.github.benwhitehead.finch.httpsInterface=''"))
           assert(string.contains("-io.github.benwhitehead.finch.pidFile"))
       } finally {
         System.setErr(stderr)

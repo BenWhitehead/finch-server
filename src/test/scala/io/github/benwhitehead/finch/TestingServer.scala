@@ -1,5 +1,7 @@
 package io.github.benwhitehead.finch
 
+import java.net.InetSocketAddress
+
 import io.finch._
 
 /**
@@ -21,7 +23,7 @@ object TestingServer extends FinchServer {
   }
 
   override lazy val defaultHttpPort = 19990
-  override lazy val config = Config(port = 17070)
+  override lazy val config = Config(httpInterface = Some(new InetSocketAddress(7070)))
   override lazy val serverName = "test-server"
 
   def service = {
