@@ -79,7 +79,7 @@ Hello World
 
 # Artifacts
 
-Compiled for scala 2.10 and 2.11
+Compiled for scala 2.11
 
 ## SBT
 
@@ -89,6 +89,6 @@ Artifacts for finch-server are currently hosed in a google storage bucket, so yo
 resolvers += "finch-server" at "http://storage.googleapis.com/benwhitehead_me/maven/public"
 
 libraryDependencies ++= Seq(
-  "io.github.benwhitehead.finch" %% "finch-server" % "0.9.0"
+  "io.github.benwhitehead.finch" %% "finch-server" % "0.9.1"
 )
 ```
